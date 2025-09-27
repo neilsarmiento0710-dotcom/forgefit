@@ -2,14 +2,14 @@
  <nav class="pc-sidebar">
    <div class="navbar-wrapper">
      <div class="m-header flex items-center py-4 px-6 h-header-height">
-       <a href="../admin/dashboard.php" class="b-brand flex items-center gap-3">
+       <a href="../member/member_dashboard.php" class="b-brand flex items-center gap-3">
          <img src="../assets/images/*.png" alt="logo here" /> <!-- logo images here -->
        </a>
      </div>
      <div class="navbar-content h-[calc(100vh_-_74px)] py-2.5">
        <div class="shrink-0 flex items-center justify-left mb-5">&nbsp;&nbsp;&nbsp;&nbsp;
          <h5 class="text-left font-medium text-[15px] flex items-center gap-2">
-           <img src="../assets/images/user/avatar-2.jpg" alt="user-image" class="w-10 rounded-full" />Administrator
+           <img src="../assets/images/user/avatar-2.jpg" alt="user-image" class="w-10 rounded-full" />User1
          </h5>
        </div>
        <div class="grow ms-3 text-center mb-4">
@@ -20,22 +20,22 @@
          </li>
 
          <li class="pc-item"> <!-- Dashboard menu -->
-           <a href="../admin/dashboard.php" class="pc-link">
+           <a href="../member/member_dashboard.php" class="pc-link">
              <span class="pc-micon"><i data-feather="home"></i></span>
              <span class="pc-mtext">Dashboard</span>
            </a>
          </li>
 
          <li class="pc-item"> <!-- Menu 01 -->
-           <a href="../admin/template01.php" class="pc-link">
+           <a href="../member/temp1_member.php" class="pc-link">
              <span class="pc-micon"><i data-feather="users"></i></span>
-             <span class="pc-mtext">Menu 01</span>
+             <span class="pc-mtext">Workout Plans</span>
            </a>
          </li>
 
          <li class="pc-item pc-hasmenu"> <!-- Menu 02 -->
-           <a href="../admin/template02.php" class="pc-link">
-             <span class="pc-micon"> <i data-feather="airplay"></i></span><span class="pc-mtext">Menu 02</span>
+           <a href="../member/temp2_member.php" class="pc-link">
+             <span class="pc-micon"> <i data-feather="airplay"></i></span><span class="pc-mtext">Schedule</span>
            </a>
          </li>
 
@@ -44,8 +44,8 @@
            <a href="#!" class="pc-link"><span class="pc-micon"> <i data-feather="clipboard"></i> </span><span
                class="pc-mtext">Menu 03</span><span class="pc-arrow"><i class="ti ti-chevron-right"></i></span></a>
            <ul class="pc-submenu">
-             <li class="pc-item"><a class="pc-link" href="../admin/template03.php">Sub-Menu 01</a></li>
-             <li class="pc-item"><a class="pc-link" href="../admin/template04.php">Sub-Menu 02</a></li>
+             <li class="pc-item"><a class="pc-link" href="../member/temp3_member.php">Membership</a></li>
+             <li class="pc-item"><a class="pc-link" href="../member/temp4_member.php">Progress</a></li>
            </ul>
          </li>
          <!-- Menu with submenu end -->

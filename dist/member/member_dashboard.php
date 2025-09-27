@@ -59,7 +59,7 @@ if (isset($_POST['submit'])) {
               <h5 class="mb-0 font-medium">Dashboard</h5>
             </div>
             <ul class="breadcrumb">
-              <li class="breadcrumb-item"><a href="../member/member_dashboard.php">Home</a></li>
+              <li class="breadcrumb-item"><a href="../member/member_dashboard.php">Member</a></li>
               <!-- <li class="breadcrumb-item"><a href="javascript: void(0)">Dashboard</a></li> -->
               <li class="breadcrumb-item" aria-current="page">Dashboard</li>
             </ul>
