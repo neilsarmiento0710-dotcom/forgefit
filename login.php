@@ -49,7 +49,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 </a>
 </body>
 </html> 
-*/
+
 
 session_start();
 
@@ -152,4 +152,131 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
       main_layout_change('vertical');
     </script>
   </body>
+</html> */
+session_start();
+
+// Mock users
+$users = [
+  ["id" => 1, "username" => "member1", "password" => "1234", "role" => "member"],
+  ["id" => 2, "username" => "coach1", "password" => "5678", "role" => "coach"],
+  ["id" => 3, "username" => "admin1", "password" => "9999", "role" => "admin"]
+];
+
+$error = "";
+
+// Handle login
+if ($_SERVER["REQUEST_METHOD"] === "POST") {
+    $username = $_POST["username"] ?? "";
+    $password = $_POST["password"] ?? "";
+
+    foreach ($users as $u) {
+        if ($u["username"] === $username && $u["password"] === $password) {
+            $_SESSION["user"] = $u;
+            session_regenerate_id(true);
+
+            // Redirect based on role
+            if ($u["role"] === "member") {
+                header("Location: ./dist/member/member_dashboard.php");
+            } elseif ($u["role"] === "coach") {
+                header("Location: ./dist/coach/dashboard.php");
+            } elseif ($u["role"] === "admin") {
+                header("Location: ./dist/admin/dashboard.php");
+            }
+            exit;
+        }
+    }
+    $error = "Invalid login.";
+}
+?>
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="description" content="Login to FitZone Gym" />
+    <meta name="keywords" content="gym, login, fitness" />
+    <meta name="author" content="Sniper 2025" />
+    <title>Login - FitZone Gym</title>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;600;700;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="./dist/assets/fonts/phosphor/duotone/style.css" />
+    <link rel="stylesheet" href="./dist/assets/fonts/tabler-icons.min.css" />
+    <link rel="stylesheet" href="./dist/assets/fonts/feather.css" />
+    <link rel="stylesheet" href="./dist/assets/fonts/fontawesome.css" />
+    <link rel="stylesheet" href="./dist/assets/fonts/material.css" />
+    <link rel="stylesheet" href="./dist/assets/css/style.css" id="main-style-link" />
+    <link rel="stylesheet" href="./dist/assets/css/login.css" />
+</head>
+<body>
+    <div class="login-main">
+        <div class="login-wrapper">
+            <!-- Logo -->
+            <div class="login-logo">
+                <h1>FitZone</h1>
+                <p>Member Portal</p>
+            </div>
+
+            <!-- Login Card -->
+            <div class="login-card">
+                <h2>Welcome Back</h2>
+                <p class="subtitle">Sign in to access your account</p>
+
+                <?php if ($error): ?>
+                    <div class="error-message">
+                        <?= htmlspecialchars($error) ?>
+                    </div>
+                <?php endif; ?>
+
+                <form method="POST">
+                    <div class="form-group">
+                        <label for="username">Username</label>
+                        <input 
+                            type="text" 
+                            id="username"
+                            name="username" 
+                            placeholder="Enter your username" 
+                            required 
+                            class="form-control"
+                            autofocus
+                        >
+                    </div>
+
+                    <div class="form-group">
+                        <label for="password">Password</label>
+                        <input 
+                            type="password" 
+                            id="password"
+                            name="password" 
+                            placeholder="Enter your password" 
+                            required 
+                            class="form-control"
+                        >
+                    </div>
+
+                    <div class="btn-group">
+                        <button type="submit" class="btn btn-primary">Login</button>
+                        <a href="index.php" style="flex: 1; text-decoration: none;">
+                            <button type="button" class="btn btn-secondary" style="width: 100%;">Back to Home</button>
+                        </a>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Back Link -->
+            <div class="back-link">
+                <a href="index.php">← Return to Homepage</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Required Js -->
+    <script src="./dist/assets/js/plugins/simplebar.min.js"></script>
+    <script src="./dist/assets/js/plugins/popper.min.js"></script>
+    <script src="./dist/assets/js/icon/custom-icon.js"></script>
+    <script src="./dist/assets/js/plugins/feather.min.js"></script>
+    <script src="./dist/assets/js/component.js"></script>
+    <script src="./dist/assets/js/theme.js"></script>
+    <script src="./dist/assets/js/script.js"></script>
+</body>
 </html>
