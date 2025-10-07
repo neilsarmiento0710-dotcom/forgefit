@@ -1,0 +1,566 @@
+/* ========================================
+    FitZone Dashboard CSS - Customized Theme
+    ======================================== */
+
+/* Root Variables - Updated for Blue/Cyan Gym Theme */
+:root {
+    /* Primary Colors - Based on your Gym's dark blue/cyan palette */
+    --primary-dark-blue: #003366;      /* Dark Blue (Header/Feature BG) */
+    --primary-medium-blue: #023e8a;    /* Medium Blue */
+    --primary-cyan: #0096c7;           /* Main CTA/Accent Cyan */
+    --primary-cyan-light: #48cae4;     /* Light Cyan (Hover) */
+    
+    /* Background Colors */
+    --bg-main: #f0f4f8;                /* Lighter off-white/grey for main content */
+    --bg-white: #ffffff;
+    --bg-card: #ffffff;
+    
+    /* Text Colors */
+    --text-primary: #020617;           /* Very Dark Text */
+    --text-secondary: #6b7280;         /* Grey Text */
+    --text-light: #90e0ef;             /* Light Cyan Text for Dark BG (Footer) */
+    --text-dark-blue: #001d3d;         /* Very Dark Blue (Footer BG color) */
+    
+    /* Accent Colors */
+    --accent-blue-cta: #0096c7;
+    --accent-red: #ef4444;             /* Error message color (from login) */
+    --accent-link: #3b82f6;            /* A subtle mid-blue for links/focus states (from login) */
+    
+    /* Status Colors */
+    --status-active: #48cae4;          /* Light Cyan */
+    --status-complete: #0096c7;        /* Primary Cyan */
+    --status-pending: #1e40af;         /* A darker blue for pending */
+    
+    /* Progress Bar Colors */
+    --progress-daily: #0096c7;
+    --progress-monthly: #48cae4;
+    
+    /* Border & Shadow */
+    --border-color: #e5e7eb;
+    --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+
+    /* Font Family from Homepage CSS */
+    --font-family-main: 'Montserrat', sans-serif;
+}
+
+/* Base Styles Update */
+body {
+    font-family: var(--font-family-main); /* Apply Montserrat */
+}
+
+
+/* ========================================
+    Sidebar Styles
+    ======================================== */
+
+.sidebar {
+    width: 250px;
+    /* Updated gradient for dark blue/cyan look */
+    background: linear-gradient(180deg, var(--primary-dark-blue) 0%, #001d3d 100%); 
+    color: white;
+    height: 100vh;
+    position: fixed;
+    left: 0;
+    top: 0;
+    overflow-y: auto;
+    /* Added shadow for depth */
+    box-shadow: 2px 0 10px rgba(0, 0, 0, 0.5); 
+}
+
+.sidebar-header {
+    padding: 1.5rem;
+    font-size: 1.5rem;
+    font-weight: bold;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    /* Logo style from homepage */
+    color: #ffffff;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+}
+
+.sidebar-section {
+    padding: 1.5rem 0;
+}
+
+.sidebar-section-title {
+    padding: 0 1.5rem;
+    margin-bottom: 0.5rem;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-light); /* Lighter cyan for subtle title */
+    font-weight: 600;
+}
+
+.sidebar-menu-item {
+    display: flex;
+    align-items: center;
+    padding: 0.75rem 1.5rem;
+    color: rgba(255, 255, 255, 0.9);
+    text-decoration: none;
+    transition: all 0.2s;
+    cursor: pointer;
+}
+
+.sidebar-menu-item:hover {
+    background: rgba(72, 202, 228, 0.15); /* Light cyan hover */
+    color: white;
+}
+
+.sidebar-menu-item.active {
+    background: rgba(72, 202, 228, 0.25); /* Stronger light cyan active background */
+    color: white;
+    border-left: 3px solid var(--primary-cyan-light); /* Light cyan active border */
+}
+
+.sidebar-menu-item .icon {
+    margin-right: 0.75rem;
+    width: 20px;
+    height: 20px;
+}
+
+.sidebar-menu-item .badge {
+    margin-left: auto;
+    background: var(--primary-cyan); /* Primary Cyan badge */
+    color: white;
+    padding: 0.125rem 0.5rem;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+/* ========================================
+    Main Content Area
+    ======================================== */
+
+.main-content {
+    margin-left: 250px;
+    min-height: 100vh;
+    background: var(--bg-main);
+}
+
+.top-bar {
+    background: var(--bg-white);
+    padding: 1rem 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    box-shadow: var(--shadow-sm);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    /* Added subtle border at bottom */
+    border-bottom: 1px solid var(--border-color); 
+}
+
+.top-bar-left {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.menu-toggle {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--primary-medium-blue); /* Used a blue for icon contrast */
+    font-size: 1.5rem;
+}
+
+.search-icon {
+    color: var(--primary-medium-blue); /* Used a blue for icon contrast */
+    cursor: pointer;
+}
+
+.top-bar-right {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.theme-toggle {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--primary-medium-blue); /* Used a blue for icon contrast */
+    font-size: 1.25rem;
+}
+
+.user-profile {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: var(--primary-cyan); /* Primary Cyan profile circle */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    cursor: pointer;
+}
+
+/* ========================================
+    Dashboard Content
+    ======================================== */
+
+.dashboard-container {
+    padding: 2rem;
+    max-width: 1400px;
+
+}
+
+.dashboard-header {
+    margin-bottom: 2rem;
+}
+
+.dashboard-title {
+    font-size: 1.875rem;
+    font-weight: bold;
+    color: var(--text-primary);
+    margin-bottom: 0.25rem;
+}
+
+.breadcrumb {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+}
+
+.breadcrumb a {
+    color: var(--primary-medium-blue);
+    text-decoration: none;
+}
+
+.breadcrumb-separator {
+    color: var(--text-secondary);
+}
+
+/* ========================================
+    Earnings Cards
+    ======================================== */
+
+.earnings-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.earnings-card {
+    background: var(--bg-card);
+    border-radius: 0.5rem;
+    padding: 1.5rem;
+    box-shadow: 0 5px 20px rgba(0, 119, 182, 0.1); /* Subtle blue shadow from features card */
+    transition: box-shadow 0.2s, transform 0.2s;
+}
+
+.earnings-card:hover {
+    box-shadow: 0 15px 40px rgba(0, 119, 182, 0.2); /* Stronger blue shadow */
+    transform: translateY(-3px);
+}
+
+.earnings-header {
+    font-size: 0.875rem;
+    color: var(--primary-medium-blue); /* Changed header color to medium blue */
+    margin-bottom: 1rem;
+    font-weight: 500;
+}
+
+.earnings-content {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1rem;
+}
+
+.earnings-amount-container {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.earnings-arrow {
+    color: var(--primary-cyan); /* Primary Cyan color for arrow */
+    font-size: 1.5rem;
+}
+
+.earnings-amount {
+    font-size: 2rem;
+    font-weight: bold;
+    color: var(--text-primary);
+}
+
+.earnings-percentage {
+    color: var(--primary-cyan); /* Primary Cyan for percentage */
+    font-size: 0.875rem;
+    font-weight: 600;
+}
+
+.progress-bar {
+    width: 100%;
+    height: 6px;
+    background: #e5e7eb;
+    border-radius: 9999px;
+    overflow: hidden;
+}
+
+.progress-bar-fill {
+    height: 100%;
+    /* Gradient using cyan colors */
+    background: linear-gradient(90deg, var(--progress-daily) 0%, var(--primary-cyan-light) 100%);
+    border-radius: 9999px;
+    transition: width 0.3s;
+}
+
+.earnings-card:nth-child(2) .progress-bar-fill {
+    /* Different gradient for the second card */
+    background: linear-gradient(90deg, var(--progress-monthly) 0%, var(--primary-cyan) 100%);
+}
+
+/* ========================================
+    Recent Activities Section
+    ======================================== */
+
+.activities-card {
+    background: var(--bg-card);
+    border-radius: 0.5rem;
+    padding: 1.5rem;
+    box-shadow: var(--shadow-sm);
+}
+
+.activities-header {
+    font-size: 1.125rem;
+    font-weight: 700; /* Made slightly bolder */
+    color: var(--primary-dark-blue); /* Used dark blue for section title */
+    margin-bottom: 1.5rem;
+}
+
+.activity-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.activity-item {
+    display: flex;
+    align-items: center;
+    padding: 1rem;
+    border-radius: 0.5rem;
+    transition: background 0.2s;
+}
+
+.activity-item:hover {
+    background: #f0f9ff; /* Light blue hover */
+}
+
+.activity-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 1rem;
+    flex-shrink: 0;
+    background: #e0f2fe; /* Very light blue background */
+    color: var(--primary-cyan); /* Cyan icon color */
+}
+
+.activity-content {
+    flex: 1;
+}
+
+.activity-title {
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 0.25rem;
+}
+
+.activity-description {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+}
+
+.activity-meta {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-left: 1rem;
+}
+
+.activity-timestamp {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+}
+
+.status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+}
+
+.status-dot.active {
+    background: var(--status-active); /* Light Cyan */
+}
+
+.status-dot.error {
+    background: var(--accent-red);
+}
+
+.status-dot.pending {
+    background: var(--status-pending); /* Darker blue */
+}
+
+.status-dot.complete {
+    background: var(--status-complete); /* Primary Cyan */
+}
+
+.activity-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+/* Re-styling action buttons to use the blue/cyan palette */
+.action-btn {
+    padding: 0.375rem 0.875rem;
+    border-radius: 0.375rem;
+    border: none;
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.action-btn.primary {
+    background: var(--primary-dark-blue); /* Dark Blue for primary action */
+    color: white;
+}
+
+.action-btn.primary:hover {
+    background: var(--primary-medium-blue);
+}
+
+.action-btn.secondary {
+    background: var(--primary-cyan); /* Primary Cyan for secondary action */
+    color: white;
+}
+
+.action-btn.secondary:hover {
+    background: var(--primary-cyan-light);
+}
+
+.action-btn.success {
+    background: var(--primary-cyan); /* Using a cyan for success/completion */
+    color: white;
+}
+
+.action-btn.success:hover {
+    background: var(--primary-cyan-light);
+}
+
+/* ========================================
+    Footer
+    ======================================== */
+
+.dashboard-footer {
+    margin-top: 3rem;
+    padding-top: 2rem;
+    border-top: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+}
+
+/* ========================================
+    Responsive Design
+    ======================================== */
+
+@media (max-width: 768px) {
+    .sidebar {
+        transform: translateX(-100%);
+        transition: transform 0.3s;
+    }
+    
+    .sidebar.open {
+        transform: translateX(0);
+    }
+    
+    .main-content {
+        margin-left: 0;
+    }
+    
+    .earnings-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .dashboard-container {
+        padding: 1rem;
+    }
+    
+    .activity-item {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    
+    .activity-meta {
+        margin-left: 0;
+        margin-top: 0.5rem;
+        width: 100%;
+        justify-content: space-between;
+    }
+    
+    .dashboard-footer {
+        flex-direction: column;
+        gap: 1rem;
+        text-align: center;
+    }
+}
+
+/* ========================================
+    Dark Mode Support (Optional) - Updated for Blue/Cyan
+    ======================================== */
+
+.dark-mode {
+    --bg-main: #0f172a;               /* Darker background from html gradient */
+    --bg-white: #1e293b;              /* Darker card/bar background */
+    --bg-card: #1e293b;
+    --text-primary: #f8fafc;
+    --text-secondary: #94a3b8;
+    --text-light: #48cae4;
+    --border-color: #334155;
+    --shadow-sm: none;
+    --shadow-md: 0 4px 10px rgba(0, 0, 0, 0.4);
+}
+
+.dark-mode .top-bar {
+    box-shadow: var(--shadow-md);
+}
+
+.dark-mode .sidebar {
+    /* Darker sidebar gradient */
+    background: linear-gradient(180deg, #020617 0%, #001d3d 100%);
+    box-shadow: 2px 0 10px rgba(0, 0, 0, 0.7);
+}
+
+.dark-mode .activity-item:hover {
+    background: #334155;
+}
+
+.dark-mode .progress-bar {
+    background: #334155;
+}
+
+.dark-mode .earnings-card {
+    box-shadow: 0 5px 20px rgba(0, 150, 199, 0.2);
+}
+
+.dark-mode .earnings-card:hover {
+    box-shadow: 0 15px 40px rgba(0, 150, 199, 0.4);
+}

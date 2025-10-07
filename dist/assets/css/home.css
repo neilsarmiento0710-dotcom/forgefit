@@ -1,24 +1,27 @@
 /* Gym Homepage Styles */
-* {
+html {
     margin: 0;
     padding: 0;
-    box-sizing: border-box;
+    background: linear-gradient(135deg, #020617 0%, #0f172a 100%);
 }
 
 body {
     font-family: 'Montserrat', sans-serif;
-    color: #333;
+    color: #0077b6;
     line-height: 1.6;
+    margin: 0;
+    padding: 0;
+    background: transparent;
 }
 
 /* Header Styles */
 header {
-    background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
+    background-color: #003366 !important; /* dark blue - added !important to override JS */
     position: fixed;
     width: 100%;
     top: 0;
     z-index: 1000;
-    box-shadow: 0 2px 20px rgba(0,0,0,0.3);
+    box-shadow: 0 2px 20px rgba(0, 0, 0, 0.4);
 }
 
 nav {
@@ -33,7 +36,7 @@ nav {
 .logo {
     font-size: 2rem;
     font-weight: 900;
-    color: #ff6b35;
+    color: #ffffff;
     text-transform: uppercase;
     letter-spacing: 2px;
 }
@@ -56,30 +59,31 @@ nav {
 }
 
 .nav-links a:hover {
-    color: #ff6b35;
+    color: #48cae4;
 }
 
 .cta-btn {
-    background: #ff6b35;
-    color: #fff;
+    background: #0096c7 !important;
+    color: #fff !important;
     padding: 0.8rem 2rem;
     border-radius: 30px;
     text-decoration: none;
     font-weight: 700;
     transition: all 0.3s;
-    box-shadow: 0 4px 15px rgba(255, 107, 53, 0.4);
+    box-shadow: 0 4px 15px rgba(0, 150, 199, 0.4);
 }
 
 .cta-btn:hover {
-    background: #ff8555;
+    background: #48cae4 !important;
+    color: #fff !important;
     transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(255, 107, 53, 0.6);
+    box-shadow: 0 6px 20px rgba(72, 202, 228, 0.6);
 }
 
 /* Hero Section */
 .hero {
     height: 100vh;
-    background: linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.5)), 
+    background: linear-gradient(rgba(0, 51, 102, 0.7), rgba(5, 51, 77, 0.7)), 
                 url('https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=1600') center/cover;
     display: flex;
     align-items: center;
@@ -106,7 +110,7 @@ nav {
 
 .hero-btn {
     display: inline-block;
-    background: #ff6b35;
+    background: #0096c7;
     color: #fff;
     padding: 1.2rem 3rem;
     font-size: 1.1rem;
@@ -120,8 +124,8 @@ nav {
 }
 
 .hero-btn:hover {
-    background: #fff;
-    color: #ff6b35;
+    background: #48cae4;
+    color: #fff;
     transform: scale(1.05);
 }
 
@@ -139,16 +143,28 @@ nav {
 /* Features Section */
 .features {
     padding: 5rem 5%;
-    background: #f5f5f5;
+    background: #003366;
+    position: relative;
 }
 
+.features::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 80%;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, #3b82f6, #60a5fa, #3b82f6, transparent);
+    opacity: 0.3;
+}
 .section-title {
     text-align: center;
     font-size: 3rem;
     font-weight: 900;
     margin-bottom: 3rem;
     text-transform: uppercase;
-    color: #1a1a1a;
+    color: #ffffff;
 }
 
 .features-grid {
@@ -165,17 +181,17 @@ nav {
     border-radius: 15px;
     text-align: center;
     transition: all 0.3s;
-    box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+    box-shadow: 0 5px 20px rgba(0, 119, 182, 0.1);
 }
 
 .feature-card:hover {
     transform: translateY(-10px);
-    box-shadow: 0 15px 40px rgba(0,0,0,0.2);
+    box-shadow: 0 15px 40px rgba(0, 119, 182, 0.2);
 }
 
 .feature-icon {
     font-size: 3rem;
-    color: #ff6b35;
+    color: #0096c7;
     margin-bottom: 1rem;
 }
 
@@ -183,6 +199,11 @@ nav {
     font-size: 1.5rem;
     margin-bottom: 1rem;
     font-weight: 700;
+    color: #023e8a;
+}
+
+.feature-card p {
+    color: #0077b6;
 }
 
 /* Gallery Section */
@@ -223,7 +244,7 @@ nav {
     bottom: 0;
     left: 0;
     right: 0;
-    background: linear-gradient(transparent, rgba(0,0,0,0.8));
+    background: linear-gradient(transparent, rgba(0, 51, 102, 0.9));
     color: #fff;
     padding: 2rem;
     transform: translateY(100%);
@@ -237,7 +258,7 @@ nav {
 /* Pricing Section */
 .pricing {
     padding: 5rem 5%;
-    background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
+    background: #003366;
     color: #fff;
 }
 
@@ -250,24 +271,24 @@ nav {
 }
 
 .pricing-card {
-    background: rgba(255,255,255,0.05);
+    background: rgba(255, 255, 255, 0.1);
     padding: 3rem 2rem;
     border-radius: 15px;
     text-align: center;
-    border: 2px solid rgba(255,255,255,0.1);
+    border: 2px solid rgba(255, 255, 255, 0.2);
     transition: all 0.3s;
 }
 
 .pricing-card:hover {
     transform: translateY(-10px);
-    border-color: #ff6b35;
-    background: rgba(255,107,53,0.1);
+    border-color: #48cae4;
+    background: rgba(72, 202, 228, 0.2);
 }
 
 .pricing-card h3 {
     font-size: 1.8rem;
     margin-bottom: 1rem;
-    color: #ff6b35;
+    color: #48cae4;
 }
 
 .price {
@@ -284,12 +305,12 @@ nav {
 
 .pricing-features li {
     padding: 0.5rem 0;
-    border-bottom: 1px solid rgba(255,255,255,0.1);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.2);
 }
 
 /* Footer */
 footer {
-    background: #0a0a0a;
+    background: #001d3d;
     color: #fff;
     padding: 3rem 5%;
 }
@@ -303,7 +324,7 @@ footer {
 }
 
 .footer-section h3 {
-    color: #ff6b35;
+    color: #48cae4;
     margin-bottom: 1rem;
     font-size: 1.3rem;
 }
@@ -317,20 +338,24 @@ footer {
 }
 
 .footer-section a {
-    color: #aaa;
+    color: #90e0ef;
     text-decoration: none;
     transition: color 0.3s;
 }
 
 .footer-section a:hover {
-    color: #ff6b35;
+    color: #48cae4;
+}
+
+.footer-section p {
+    color: #90e0ef;
 }
 
 .footer-bottom {
     text-align: center;
     padding-top: 2rem;
-    border-top: 1px solid rgba(255,255,255,0.1);
-    color: #aaa;
+    border-top: 1px solid rgba(255, 255, 255, 0.2);
+    color: #90e0ef;
 }
 
 .social-links {
@@ -342,7 +367,7 @@ footer {
 .social-links a {
     width: 40px;
     height: 40px;
-    background: rgba(255,255,255,0.1);
+    background: rgba(255, 255, 255, 0.1);
     border-radius: 50%;
     display: flex;
     align-items: center;
@@ -351,7 +376,7 @@ footer {
 }
 
 .social-links a:hover {
-    background: #ff6b35;
+    background: #0096c7;
     transform: translateY(-3px);
 }
 
@@ -390,4 +415,386 @@ footer {
     .section-title {
         font-size: 2rem;
     }
+}
+
+/* Remove white space below footer */
+html, body {
+    margin: 0;
+    padding: 0;
+    min-height: 100%;
+}
+
+footer {
+    margin-bottom: 0 !important;
+    padding-bottom: 4rem !important;
+}
+
+body {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+}
+
+footer {
+    margin-top: auto;
+}
+/*****************************************************************************************************************************/
+/* Gym Login Page Styles */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Montserrat', sans-serif;
+    color: #1e3a8a;
+    line-height: 1.6;
+}
+
+/* Login Container */
+.login-main {
+     height: 100vh;
+    background: linear-gradient(rgba(0, 51, 102, 0.7), rgba(5, 51, 77, 0.7)), 
+                url('https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=1600') center/cover;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    color: #fff;
+    margin-top: 70px;
+}
+
+.login-wrapper {
+    width: 100%;
+    max-width: 800px;
+    animation: fadeInUp 0.8s ease;
+    position: relative;
+    z-index: 1;
+}
+
+/* Logo Section */
+.login-logo {
+    text-align: center;
+    margin-bottom: 2rem;
+}
+
+.login-logo h1 {
+    font-size: 3rem;
+    font-weight: 900;
+    background: #e0f2fe;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    text-transform: uppercase;
+    letter-spacing: 3px;
+    text-shadow: 0 0 30px rgba(255, 255, 255, 0.5);
+    margin-bottom: 0.5rem;
+}
+
+.login-logo p {
+    color: #e0f2fe;
+    font-size: 1.1rem;
+    font-weight: 300;
+    letter-spacing: 1px;
+}
+
+/* Login Form Card */
+.login-card {
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(248, 250, 252, 0.95) 100%);
+    backdrop-filter: blur(20px);
+    padding: 2rem 2rem;
+    border-radius: 25px;
+    box-shadow: 0 20px 60px rgba(15, 23, 42, 0.4),
+                0 0 0 1px rgba(96, 165, 250, 0.2);
+    border: 1px solid rgba(96, 165, 250, 0.2);
+    max-width: 700px;
+    margin: 0 auto;
+}
+
+.login-card h2 {
+    text-align: center;
+    font-size: 2rem;
+    font-weight: 800;
+    background: #003366;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 0.3rem;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+}
+
+.login-card .subtitle {
+    text-align: center;
+    color: #64748b;
+    margin-bottom: 2.5rem;
+    font-size: 0.95rem;
+}
+
+/* Error Message */
+.error-message {
+    background: rgba(239, 68, 68, 0.1);
+    border-left: 4px solid #ef4444;
+    color: #dc2626;
+    padding: 1rem;
+    border-radius: 10px;
+    margin-bottom: 1.5rem;
+    font-weight: 500;
+    animation: shake 0.5s ease;
+}
+
+@keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-10px); }
+    75% { transform: translateX(10px); }
+}
+
+/* Form Groups */
+/* --- Form Group & Label Adjustments --- */
+.form-group {
+    /* Reduced bottom margin */
+    margin-bottom: 1.2rem; /* Was 1.8rem */
+}
+
+.form-group label {
+    /* Slightly reduced bottom margin */
+    margin-bottom: 0.4rem; /* Was 0.5rem */
+    /* Slightly reduced font size */
+    font-size: 0.8rem; /* Was 0.9rem */
+    /* Kept colors, weight, etc. as is */
+    color: #1e40af;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* --- Form Control (Input/Textarea/Select) Adjustments --- */
+.form-control {
+    /* Reduced vertical padding (top/bottom) */
+    padding: 0.75rem 1.2rem; /* Was 1rem 1.2rem */
+    /* Reduced border radius for a slightly less 'chunky' look */
+    border-radius: 8px; /* Was 12px */
+    /* Reduced font size */
+    font-size: 0.9rem; /* Was 1rem */
+    /* Kept width and other styles as is */
+    width: 100%;
+    border: 2px solid #cbd5e1;
+    transition: all 0.3s;
+    background: #ffffff;
+    font-family: 'Montserrat', sans-serif;
+    color: #1e3a8a;
+}
+
+.form-control:focus {
+    /* Reduced box-shadow spread */
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1); /* Was 4px */
+    outline: none;
+    border-color: #3b82f6;
+    background: #f0f9ff;
+}
+
+/* --- Select Specific Adjustments --- */
+select.form-control {
+    /* Adjusted background-position to account for smaller height */
+    background-position: right 1rem center; /* Was 1.2rem */
+    /* Adjusted padding-right to account for new icon position */
+    padding-right: 2.7rem; /* Was 3rem */
+    /* Kept other select styles as is */
+    cursor: pointer;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%231e40af' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+}
+
+/* --- Button Adjustments --- */
+.btn-group {
+    /* Reduced margin-top for less space after form fields */
+    margin-top: 1.5rem; /* Was 2rem */
+    /* Kept gap as is, but could be reduced if needed */
+    gap: 1rem;
+    display: flex;
+}
+
+.btn {
+    /* Reduced vertical padding (top/bottom) */
+    padding: 0.75rem 1.5rem; /* Was 1rem 2rem */
+    /* Reduced border radius */
+    border-radius: 8px; /* Was 12px */
+    /* Reduced font size */
+    font-size: 0.9rem; /* Was 1rem */
+    /* Kept other button base styles as is */
+    flex: 1;
+    border: none;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    cursor: pointer;
+    transition: all 0.3s;
+    font-family: 'Montserrat', sans-serif;
+    position: relative;
+    overflow: hidden;
+}
+
+.btn-primary {
+    /* Reduced vertical padding to match .btn */
+    padding: 0.6rem 1.5rem; /* Was 0.8rem 2rem */
+    /* Reduced border radius */
+    border-radius: 20px; /* Was 30px */
+    /* Reduced box shadow spread */
+    box-shadow: 0 3px 10px rgba(0, 150, 199, 0.4); /* Was 4px 15px */
+    /* Kept other primary button styles as is */
+    background: #0096c7 !important;
+    color: #fff !important;
+    text-decoration: none;
+    font-weight: 700;
+    transition: all 0.3s;
+}
+
+.btn-primary:hover {
+    /* Reduced box shadow spread */
+    box-shadow: 0 4px 15px rgba(72, 202, 228, 0.6); /* Was 6px 20px */
+    /* Kept other hover styles as is */
+    background: #48cae4 !important;
+    color: #fff !important;
+    transform: translateY(-2px);
+}
+
+.btn-secondary {
+    /* Reduced box shadow spread */
+    box-shadow: none; /* Removed initial box-shadow for a cleaner look */
+    /* Kept other secondary button styles as is */
+    background: #f1f5f9;
+    color: #1e40af;
+    border: 2px solid #cbd5e1;
+    font-weight: 600;
+}
+
+.btn-secondary:hover {
+    /* Reduced box shadow spread */
+    box-shadow: 0 2px 10px rgba(59, 130, 246, 0.2); /* Was 4px 15px */
+    /* Kept other hover styles as is */
+    background: #e0f2fe;
+    border-color: #3b82f6;
+    color: #1e3a8a;
+    transform: translateY(-2px);
+}
+/* Back Link */
+.back-link {
+    text-align: center;
+    margin-top: 1.5rem;
+}
+
+.back-link a {
+    color: #e0f2fe;
+    text-decoration: none;
+    font-weight: 600;
+    transition: all 0.3s;
+    font-size: 0.95rem;
+    position: relative;
+    display: inline-block;
+}
+
+.back-link a::after {
+    content: '';
+    position: absolute;
+    bottom: -3px;
+    left: 0;
+    width: 0;
+    height: 2px;
+    background: linear-gradient(90deg, #60a5fa, #93c5fd);
+    transition: width 0.3s;
+}
+
+.back-link a:hover {
+    color: #60a5fa;
+    text-shadow: 0 0 10px rgba(96, 165, 250, 0.5);
+}
+
+.back-link a:hover::after {
+    width: 100%;
+}
+
+/* Animation */
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Responsive */
+@media (min-width:  992px) {
+    .login-wrapper {
+        max-width: 700px;
+    }
+
+    .login-card {
+        padding: 3.5rem 4rem;
+    }
+
+    .login-logo h1 {
+        font-size: 2.5rem;
+    }
+
+    .btn-group {
+        flex-direction: column;
+    }
+}
+@media (max-height: 800px) {
+    .login-main {
+        padding: 2rem 1.5rem;
+    }
+    
+    .login-card {
+        padding: 2rem 1.8rem;
+    }
+    
+    .form-group {
+        margin-bottom: 1.3rem;
+    }
+}
+
+/*******************************************************************/
+.reg-card {
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(248, 250, 252, 0.95) 100%);
+    backdrop-filter: blur(20px);
+    /* CLEANUP: Removed the conflicting 'padding: 3rem 3rem;' line */
+    
+    /* MODIFIED PADDING: Ensures consistent internal spacing (Top/Bottom: 1rem, Left/Right: 2rem) */
+    padding: 2rem 2rem; 
+    
+    border-radius: 25px;
+    box-shadow: 0 20px 60px rgba(15, 23, 42, 0.4),
+                0 0 0 1px rgba(96, 165, 250, 0.2);
+    border: 1px solid rgba(96, 165, 250, 0.2);
+    
+    /* CRUCIAL FOR CENTERING: Sets the maximum width */
+    max-width: 600px;
+    
+    /* CRUCIAL FOR CENTERING: Sets top/bottom margin to 0 and left/right margin to auto */
+    margin: 0 auto; 
+}
+.reg-card h2 {
+    text-align: center;
+    font-size: 2rem;
+    font-weight: 800;
+    background: #003366;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 0.3rem;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+}
+
+.reg-card .subtitle {
+    text-align: center;
+    color: #64748b;
+    margin-bottom: 2.5rem;
+    font-size: 0.95rem;
 }

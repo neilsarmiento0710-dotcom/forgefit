@@ -1,5 +1,14 @@
 <?php
 session_start();
+
+if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'management') {
+    header("Location: ../auth/login.php");
+    exit();
+}
+?>
+
+<?php
+session_start();
 if (isset($_POST['submit'])) {
 } else {
 

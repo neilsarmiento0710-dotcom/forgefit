@@ -86,7 +86,7 @@
          </li>
          <li class="pc-item pc-hasmenu">
            <!--<a href="logout.php" class="pc-link" onclick="return confirm('Do you really want to Log-Out?')"> -->
-           <a href="logout.php" class="pc-link">
+           <a href="member_logout.php" class="pc-link">
              <span class="pc-micon"> <i data-feather="log-out"></i></span><span class="pc-mtext">Log-Out</span>
            </a>
          </li>
