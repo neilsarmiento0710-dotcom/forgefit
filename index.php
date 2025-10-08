@@ -32,9 +32,7 @@
             <div class="logo">ForgeFit</div>
             <ul class="nav-links">
                 <li><a href="#home">Home</a></li>
-                <li><a href="about.php">About</a></li>
-                <li><a href="#classes">Classes</a></li>
-                <li><a href="#trainers">Trainers</a></li>
+                <li><a href="#features">About Us</a></li>
                 <li><a href="#pricing">Pricing</a></li>
                 <li><a href="#contact">Contact</a></li>
                 <li><a href="login.php" class="cta-btn">Member Login</a></li>
@@ -57,7 +55,7 @@
     </section>
 
     <!-- Features Section -->
-    <section class="features">
+    <section id="features" class="features">
         <h2 class="section-title">Why Choose Us</h2>
         <div class="features-grid">
             <div class="feature-card">
@@ -69,16 +67,6 @@
                 <div class="feature-icon">🏋️</div>
                 <h3>Modern Equipment</h3>
                 <p>State-of-the-art machines and free weights for every type of workout.</p>
-            </div>
-            <div class="feature-card">
-                <div class="feature-icon">🕐</div>
-                <h3>Flexible Hours</h3>
-                <p>Open 24/7 to fit your busy schedule. Work out whenever it suits you best.</p>
-            </div>
-            <div class="feature-card">
-                <div class="feature-icon">👥</div>
-                <h3>Group Classes</h3>
-                <p>Dynamic group sessions including yoga, spinning, HIIT, and more.</p>
             </div>
             <div class="feature-card">
                 <div class="feature-icon">🎯</div>
@@ -99,18 +87,18 @@
         <div class="pricing-grid">
             <div class="pricing-card">
                 <h3>Basic</h3>
-                <div class="price">$29<span style="font-size: 1rem;">/mo</span></div>
+                <div class="price">600<span style="font-size: 1rem;">/mo</span></div>
                 <ul class="pricing-features">
                     <li>✓ Gym Access</li>
                     <li>✓ Cardio Equipment</li>
                     <li>✓ Locker Room</li>
                     <li>✓ Free WiFi</li>
                 </ul>
-                <a href="#" class="cta-btn">Get Started</a>
+                <a href="#  " class="cta-btn">Get Started</a>
             </div>
             <div class="pricing-card">
                 <h3>Premium</h3>
-                <div class="price">$59<span style="font-size: 1rem;">/mo</span></div>
+                <div class="price">1000<span style="font-size: 1rem;">/mo</span></div>
                 <ul class="pricing-features">
                     <li>✓ Everything in Basic</li>
                     <li>✓ Group Classes</li>
@@ -122,7 +110,7 @@
             </div>
             <div class="pricing-card">
                 <h3>Elite</h3>
-                <div class="price">$99<span style="font-size: 1rem;">/mo</span></div>
+                <div class="price">1250<span style="font-size: 1rem;">/mo</span></div>
                 <ul class="pricing-features">
                     <li>✓ Everything in Premium</li>
                     <li>✓ Personal Training (4 sessions)</li>
@@ -140,7 +128,7 @@
     <footer id="contact">
         <div class="footer-content">
             <div class="footer-section">
-                <h3>FitZone Gym</h3>
+                <h3>ForgeFit Gym</h3>
                 <p>Transform your body and mind with our expert trainers and world-class facilities.</p>
                 <div class="social-links">
                     <a href="#">f</a>
@@ -149,36 +137,16 @@
                 </div>
             </div>
             <div class="footer-section">
-                <h3>Quick Links</h3>
-                <ul>
-                    <li><a href="#home">Home</a></li>
-                    <li><a href="#about">About Us</a></li>
-                    <li><a href="#classes">Classes</a></li>
-                    <li><a href="#trainers">Trainers</a></li>
-                    <li><a href="./dist/admin/dashboard.php">Admin Dashboard</a></li>
-                </ul>
-            </div>
-            <div class="footer-section">
-                <h3>Services</h3>
-                <ul>
-                    <li><a href="#">Personal Training</a></li>
-                    <li><a href="#">Group Classes</a></li>
-                    <li><a href="#">Nutrition Coaching</a></li>
-                    <li><a href="#">Online Training</a></li>
-                </ul>
-            </div>
-            <div class="footer-section">
                 <h3>Contact Us</h3>
                 <ul>
-                    <li>📍 123 Fitness Street, Baguio City</li>
-                    <li>📞 +63 123 456 7890</li>
-                    <li>✉️ info@fitzonegym.com</li>
-                    <li>🕐 Open 24/7</li>
+                    <li>📍 Arellano Street, Dagupan City</li>
+                    <li>📞 +63 946 540 3747</li>
+                    <li>✉️ info@forgefitgym.com</li>
                 </ul>
             </div>
         </div>
         <div class="footer-bottom">
-            <p>&copy; 2025 FitZone Gym. All rights reserved. | Designed by Sniper 2025</p>
+            <p>&copy; 2025 ForgeFit Gym. All rights reserved.</p>
         </div>
     </footer>
 

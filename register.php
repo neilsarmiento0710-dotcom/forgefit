@@ -130,9 +130,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             <div class="logo">ForgeFit</div>
             <ul class="nav-links">
                 <li><a href="index.php">Home</a></li>
-                <li><a href="about.php">About</a></li>
-                <li><a href="#classes">Classes</a></li>
-                <li><a href="#trainers">Trainers</a></li>
+                <li><a href="#features">About Us</a></li>
                 <li><a href="#pricing">Pricing</a></li>
                 <li><a href="#contact">Contact</a></li>
                 <li><a href="login.php" class="cta-btn">Member Login</a></li>
@@ -238,12 +236,12 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                         </a>
                     </div>
 
-                    <p style="text-align: center; margin-top: 15px;">
-                        Already have an account?
-                        <a href="login.php" style="color: #10b981; font-weight: 600;">Sign in</a>
-                    </p>
                 </form>
             </div>
+                <p style="text-align: center; margin-top: 15px;">
+                        Already have an account?
+                        <a href="login.php" style="color: #10b981; font-weight: 600;">Sign in</a>
+                </p>
         </div>
     </div>
 

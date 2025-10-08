@@ -4,7 +4,6 @@ require_once 'dist/database/db.php';
 
 $error = "";
 
-// Handle login
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
     $username = $_POST["username"] ?? "";
     $password = $_POST["password"] ?? "";
@@ -21,19 +20,16 @@ if (!empty($username) && !empty($password)) {
     if ($result->num_rows === 1) {
         $user = $result->fetch_assoc();
         
-        // Verify password
         if (password_verify($password, $user['password_hash'])) {
-            // Remove password from session
             unset($user['password_hash']);
-            $_SESSION["user"] = $user;  // Changed from "username" to "user"
+            $_SESSION["user"] = $user;
             session_regenerate_id(true);
 
-            // Redirect based on role
             if ($user["role"] === "member") {
                 header("Location: ./dist/member/dashboard.php");
-            } elseif ($user["role"] === "trainer") {  // Note: your role is 'trainer' not 'coach'
+            } elseif ($user["role"] === "trainer") {  
                 header("Location: ./dist/trainer/dashboard.php");
-            } elseif ($user["role"] === "management") {  // Note: your role is 'management' not 'admin'
+            } elseif ($user["role"] === "management") {
                 header("Location: ./dist/admin/dashboard.php");
             }
             exit;
@@ -78,9 +74,7 @@ if (!empty($username) && !empty($password)) {
             <div class="logo">ForgeFit</div>
             <ul class="nav-links">
                 <li><a href="index.php">Home</a></li>
-                <li><a href="about.php">About</a></li>
-                <li><a href="#classes">Classes</a></li>
-                <li><a href="#trainers">Trainers</a></li>
+                <li><a href="#features">About Us</a></li>
                 <li><a href="#pricing">Pricing</a></li>
                 <li><a href="#contact">Contact</a></li>
                 <li><a href="login.php" class="cta-btn">Member Login</a></li>
