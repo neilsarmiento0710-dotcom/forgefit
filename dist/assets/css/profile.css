@@ -1,0 +1,574 @@
+/* ============================================================
+   FORGEFIT PROFILE PAGE STYLES
+   Matching Dashboard Color Scheme
+   ============================================================ */
+
+/* ======================
+   COLOR VARIABLES (DASHBOARD ALIGNED)
+   ====================== */
+:root {
+    --primary-dark: #001d3d;
+    --secondary-dark: #003366;
+    --deep-blue: #023e8a;
+    --medium-blue: #0077b6;
+    --accent-blue: #0096c7;
+    --accent-light: #48cae4;
+    --highlight-cyan: #90e0ef;
+    --light-bg: #f0f9ff;
+    --light-bg-alt: #e0f2fe;
+    --border-gray: #cbd5e1;
+    --white: #ffffff;
+    --error-red: #ef4444;
+    --success-green: #10b981;
+}
+
+/* ======================
+   BASE STYLES
+   ====================== */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+/* Force dark background for profile page */
+body.profile-page {
+    background: linear-gradient(135deg, #020617 0%, #0f172a 100%) !important;
+}
+
+html, body {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    font-family: 'Montserrat', sans-serif;
+    background: linear-gradient(135deg, #020617 0%, #0f172a 100%) !important;
+}
+
+body {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    background: linear-gradient(135deg, #020617 0%, #0f172a 100%) !important;
+}
+
+main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    margin-top: 80px;
+    padding: 2rem;
+    max-width: 1400px;
+    margin-left: auto;
+    margin-right: auto;
+    width: 100%;
+}
+
+/* ======================
+   PROFILE HERO SECTION
+   ====================== */
+.profile-hero {
+    background: linear-gradient(135deg, #003366 0%, #001d3d 100%);
+    padding: 60px 40px;
+    border-radius: 20px;
+    color: var(--white);
+    margin-bottom: 40px;
+    text-align: center;
+    box-shadow: 0 10px 30px rgba(0, 51, 102, 0.4);
+}
+
+.profile-hero h1 {
+    font-size: 2.5rem;
+    font-weight: 900;
+    margin-bottom: 10px;
+    color: #ffffff;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+}
+
+.profile-hero p {
+    font-size: 1.2rem;
+    opacity: 0.8;
+    color: #90e0ef;
+}
+
+/* ======================
+   PROFILE HEADER
+   ====================== */
+.profile-header {
+    background: var(--white);
+    padding: 40px;
+    border-radius: 15px;
+    box-shadow: 0 10px 30px rgba(0, 119, 182, 0.2);
+    border: 2px solid rgba(0, 150, 199, 0.1);
+    margin-bottom: 30px;
+    display: flex;
+    align-items: center;
+    gap: 40px;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.profile-header:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 20px 40px rgba(0, 150, 199, 0.3);
+    border-color: #0096c7;
+}
+
+.profile-picture-container {
+    position: relative;
+}
+
+.profile-picture {
+    width: 150px;
+    height: 150px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 5px solid var(--accent-blue);
+    box-shadow: 0 10px 30px rgba(0, 150, 199, 0.3);
+}
+
+.profile-picture-placeholder {
+    width: 150px;
+    height: 150px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #0096c7, #48cae4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 3rem;
+    color: var(--white);
+    font-weight: 900;
+    border: 5px solid var(--white);
+    box-shadow: 0 10px 30px rgba(0, 150, 199, 0.3);
+}
+
+.change-picture-btn {
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    background: linear-gradient(135deg, #0096c7, #48cae4);
+    color: var(--white);
+    border: none;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+    box-shadow: 0 5px 15px rgba(0, 150, 199, 0.4);
+    transition: all 0.3s ease;
+}
+
+.change-picture-btn:hover {
+    transform: scale(1.1);
+    box-shadow: 0 8px 20px rgba(72, 202, 228, 0.6);
+}
+
+/* ======================
+   PROFILE INFO
+   ====================== */
+.profile-info {
+    flex: 1;
+}
+
+.profile-info h2 {
+    color: #023e8a;
+    font-size: 2rem;
+    margin-bottom: 10px;
+    font-weight: 700;
+}
+
+.profile-info p {
+    color: #0077b6;
+    font-size: 1.1rem;
+}
+
+/* ======================
+   STATS SECTION
+   ====================== */
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 20px;
+    margin-top: 20px;
+}
+
+.stat-card {
+    background: linear-gradient(135deg, #f0f9ff, #e0f2fe);
+    padding: 20px;
+    border-radius: 10px;
+    text-align: center;
+    border: 2px solid rgba(0, 150, 199, 0.2);
+    transition: all 0.3s ease;
+}
+
+.stat-card:hover {
+    transform: translateY(-5px);
+    border-color: #0096c7;
+    box-shadow: 0 10px 20px rgba(0, 150, 199, 0.3);
+}
+
+.stat-card .number {
+    font-size: 2rem;
+    font-weight: 900;
+    color: #0096c7;
+}
+
+.stat-card .label {
+    color: #023e8a;
+    font-size: 0.9rem;
+    margin-top: 5px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* ======================
+   PROFILE SECTIONS
+   ====================== */
+.profile-sections {
+    display: grid;
+    gap: 30px;
+}
+
+.profile-section {
+    background: var(--white);
+    padding: 40px;
+    border-radius: 15px;
+    box-shadow: 0 10px 30px rgba(0, 119, 182, 0.2);
+    border: 2px solid rgba(0, 150, 199, 0.1);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.profile-section:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 20px 40px rgba(0, 150, 199, 0.3);
+    border-color: #0096c7;
+}
+
+.section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 30px;
+    padding-bottom: 20px;
+    border-bottom: 2px solid #e0f2fe;
+}
+
+.section-header h3 {
+    color: #023e8a;
+    font-size: 1.2rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+/* ======================
+   BUTTONS
+   ====================== */
+.edit-btn,
+.btn-primary {
+    background: linear-gradient(135deg, #0096c7, #48cae4);
+    color: var(--white);
+    border: none;
+    padding: 12px 24px;
+    border-radius: 10px;
+    cursor: pointer;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    box-shadow: 0 4px 15px rgba(0, 150, 199, 0.4);
+    transition: all 0.3s ease;
+}
+
+.edit-btn:hover,
+.btn-primary:hover {
+    background: linear-gradient(135deg, #48cae4, #0096c7);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(72, 202, 228, 0.6);
+}
+
+.btn-secondary {
+    background: #e0f2fe;
+    color: #023e8a;
+    border: 2px solid #0096c7;
+    padding: 12px 24px;
+    border-radius: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+.btn-secondary:hover {
+    background: #0096c7;
+    color: var(--white);
+    transform: translateY(-2px);
+}
+
+/* ======================
+   FORM STYLES
+   ====================== */
+.form-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 25px;
+}
+
+.form-group label {
+    display: block;
+    font-weight: 700;
+    color: #0077b6;
+    margin-bottom: 10px;
+    font-size: 0.9rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.form-group input,
+.form-group textarea {
+    width: 100%;
+    padding: 15px;
+    border: 2px solid rgba(0, 150, 199, 0.1);
+    border-radius: 10px;
+    font-size: 1rem;
+    font-family: 'Montserrat', sans-serif;
+    transition: all 0.3s ease;
+    background: var(--white);
+    color: #023e8a;
+}
+
+.form-group input:focus,
+.form-group textarea:focus {
+    outline: none;
+    border-color: #0096c7;
+    background: #f0f9ff;
+    box-shadow: 0 0 0 3px rgba(0, 150, 199, 0.1);
+}
+
+.form-group input:disabled {
+    background: #e0f2fe;
+    cursor: not-allowed;
+    color: #0077b6;
+}
+
+.form-actions {
+    display: flex;
+    gap: 15px;
+    margin-top: 30px;
+}
+
+/* ======================
+   INFO DISPLAY BOXES
+   ====================== */
+.info-display {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 20px;
+}
+
+.info-item {
+    padding: 20px;
+    background: #f0f9ff;
+    border-radius: 10px;
+    border-left: 4px solid #0077b6;
+    transition: all 0.3s ease;
+    border: 1px solid rgba(0, 150, 199, 0.1);
+}
+
+.info-item:hover {
+    background: #e0f2fe;
+    transform: translateX(5px);
+    border-color: #0096c7;
+}
+
+.info-item label {
+    display: block;
+    font-weight: 700;
+    color: #0077b6;
+    font-size: 0.85rem;
+    margin-bottom: 8px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.info-item p {
+    color: #023e8a;
+    font-size: 1.1rem;
+    font-weight: 600;
+}
+
+/* ======================
+   MESSAGES
+   ====================== */
+.success-message {
+    background: linear-gradient(135deg, #0096c7, #48cae4);
+    color: white;
+    padding: 20px 30px;
+    border-radius: 15px;
+    margin-bottom: 30px;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    box-shadow: 0 10px 30px rgba(0, 150, 199, 0.4);
+    animation: slideDown 0.5s ease;
+    font-weight: 600;
+}
+
+.success-icon {
+    width: 40px;
+    height: 40px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    flex-shrink: 0;
+}
+
+.error-message {
+    background: rgba(239, 68, 68, 0.1);
+    color: #dc2626;
+    padding: 20px 30px;
+    border-radius: 15px;
+    margin-bottom: 30px;
+    border-left: 4px solid var(--error-red);
+    font-weight: 600;
+    animation: slideDown 0.5s ease;
+}
+
+/* ======================
+   MODAL
+   ====================== */
+.modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.7);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+}
+
+.modal.active {
+    display: flex;
+}
+
+.modal-content {
+    background: var(--white);
+    padding: 40px;
+    border-radius: 20px;
+    max-width: 500px;
+    width: 90%;
+    box-shadow: 0 10px 30px rgba(0, 119, 182, 0.2);
+    border: 2px solid rgba(0, 150, 199, 0.1);
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 30px;
+    padding-bottom: 20px;
+    border-bottom: 2px solid #e0f2fe;
+}
+
+.modal-header h3 {
+    color: #023e8a;
+    font-size: 1.5rem;
+    font-weight: 700;
+}
+
+.close-modal {
+    font-size: 2rem;
+    cursor: pointer;
+    color: #0077b6;
+    background: none;
+    border: none;
+    transition: all 0.3s ease;
+}
+
+.close-modal:hover {
+    color: #0096c7;
+    transform: rotate(90deg);
+}
+
+/* ======================
+   FOOTER
+   ====================== */
+footer {
+    margin-top: auto;
+    background: linear-gradient(135deg, #003366 0%, #001d3d 100%);
+    color: var(--white);
+    padding: 20px 0;
+}
+
+.footer-bottom {
+    text-align: center;
+    padding: 20px;
+    color: #90e0ef;
+}
+
+.footer-bottom p {
+    margin: 0;
+    font-size: 0.9rem;
+}
+
+/* ======================
+   ANIMATIONS & UTILITIES
+   ====================== */
+.hidden {
+    display: none;
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* ======================
+   RESPONSIVE DESIGN
+   ====================== */
+@media (max-width: 768px) {
+    main {
+        padding: 1rem;
+        margin-top: 60px;
+    }
+
+    .profile-hero {
+        padding: 40px 20px;
+    }
+
+    .profile-hero h1 {
+        font-size: 1.8rem;
+    }
+
+    .profile-header {
+        flex-direction: column;
+        text-align: center;
+        padding: 30px 20px;
+    }
+
+    .form-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .form-actions {
+        flex-direction: column;
+    }
+
+    .stats-grid {
+        grid-template-columns: 1fr;
+    }
+}

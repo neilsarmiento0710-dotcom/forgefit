@@ -1,49 +1,65 @@
 <?php
 session_start();
-require_once 'dist/database/db.php';
+require_once 'dist/database/db.php'; // Assuming this provides getDBConnection()
 
 $error = "";
 
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
-    $username = $_POST["username"] ?? "";
+    // The input can be the trainer's 'name' or 'email'
+    $login_input = $_POST["username"] ?? ""; 
     $password = $_POST["password"] ?? "";
 
-if (!empty($username) && !empty($password)) {
-    $conn = getDBConnection();
-    
+    if (!empty($login_input) && !empty($password)) {
+        $conn = getDBConnection();
+        $user = null;
 
-    $stmt = $conn->prepare("SELECT id, username, password_hash, role FROM users WHERE username = ?");
-    $stmt->bind_param("s", $username);
-    $stmt->execute();
-    $result = $stmt->get_result();
-    
-    if ($result->num_rows === 1) {
-        $user = $result->fetch_assoc();
+        // --- 1. Query the 'trainers' table based on the provided structure ---
+        // 'name' is aliased as 'username' and 'id' as 'trainer_id' for session consistency.
+        // 'trainer' is explicitly set as the role.
+        $stmt = $conn->prepare("SELECT id, name AS username, email, password_hash, 
+                                       'trainer' AS role, specialty, id AS trainer_id
+                                FROM trainers 
+                                WHERE (name = ? OR email = ?) AND status = 'active'");
+                                
+        // Bind the single input to check both the 'name' and 'email' columns
+        $stmt->bind_param("ss", $login_input, $login_input);
+        $stmt->execute();
+        $result = $stmt->get_result();
         
-        if (password_verify($password, $user['password_hash'])) {
-            unset($user['password_hash']);
-            $_SESSION["user"] = $user;
-            session_regenerate_id(true);
+        if ($result->num_rows === 1) {
+            $user = $result->fetch_assoc();
+            
+            // --- 2. Password Verification ---
+            if (password_verify($password, $user['password_hash'])) {
+                // Password is correct
+                unset($user['password_hash']);
+                
+                $_SESSION["user"] = $user;
+                session_regenerate_id(true);
 
-            if ($user["role"] === "member") {
-                header("Location: ./dist/member/dashboard.php");
-            } elseif ($user["role"] === "trainer") {  
-                header("Location: ./dist/trainer/dashboard.php");
-            } elseif ($user["role"] === "management") {
-                header("Location: ./dist/admin/dashboard.php");
-            }
-            exit;
+                // --- 3. Dedicated Trainer Redirect ---
+                // Since this file is ONLY for trainers, we only check for the 'trainer' role.
+                if ($user["role"] === "trainer") { 
+                    header("Location: ./dist/trainer/dashboard.php");
+                } 
+                // Note: The role is explicitly set to 'trainer' in the SELECT statement,
+                // so the 'else if' blocks for 'member'/'management' are unnecessary here 
+                // unless you plan to use this single file for all logins again.
+                
+                exit;
             } else {
-                $error = "Invalid username or password.";
+                $error = "Invalid email/name or password.";
             }
         } else {
-            $error = "Invalid username or password.";
+            // User not found or status is not 'active'
+            $error = "Invalid email/name or password.";
         }
         
-        $stmt->close();
+        // --- 4. Cleanup ---
+        if ($stmt) $stmt->close();
         $conn->close();
     } else {
-        $error = "Please enter both username and password.";
+        $error = "Please enter both email/name and password.";
     }
 }
 ?>
@@ -91,7 +107,7 @@ if (!empty($username) && !empty($password)) {
         <div class="login-wrapper">
             <!-- Logo -->
             <div class="login-logo">
-                <h1>ForgeFit / Member</h1>
+                <h1>ForgeFit / Trainer</h1>
             </div>
 
             <!-- Login Card -->

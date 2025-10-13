@@ -1,55 +1,157 @@
 <?php
 session_start();
-if (isset($_POST['submit'])) {
-} else {
 
-?>
-  <!doctype html>
-  <html lang="en" data-pc-preset="preset-1" data-pc-sidebar-caption="true" data-pc-direction="ltr" dir="ltr" data-pc-theme="light">
-
-  <head>
-    <!-- Debug: Add error reporting -->
-<?php 
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
-echo "<!-- Current file path: " . __FILE__ . " -->";
+
+// 🔹 Include database connection with error checking
+$db_path = '../database/db.php';
+
+if (!file_exists($db_path)) {
+    die("Error: Database connection file not found at: " . realpath(dirname(__FILE__) . '/' . $db_path));
+}
+
+include $db_path;
+
+// 🔹 Verify connection exists
+if (!isset($conn) || $conn === null) {
+    die("Error: Database connection (\$conn) is not defined. Please check your db.php file.");
+}
+
+if (isset($_POST['submit'])) {
+    // handle form submission if needed
+} else {
+    // Fetch trainers from database
+    $sql = "SELECT * FROM trainers";
+    $result = $conn->query($sql);
+
+    if ($result === false) {
+        die("Database query failed: " . $conn->error);
+    }
 ?>
-    
-<title>Dashboard</title>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=0, minimal-ui" />
-<meta http-equiv="X-UA-Compatible" content="IE=edge" />
-<meta name="description" content="." />
-<meta name="keywords" content="." />
-<meta name="author" content="Sniper 2025" />
-    
-    <!-- Fixed paths - since you're in member/ and assets are in dist/ -->
-    <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@300;400;500;600&display=swap" rel="stylesheet" />
-    <!-- Added Montserrat link, assuming the custom CSS uses it -->
-    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet"> 
-    <link rel="stylesheet" href="../assets/fonts/phosphor/duotone/style.css" />
-    <link rel="stylesheet" href="../assets/fonts/tabler-icons.min.css" />
-    <link rel="stylesheet" href="../assets/fonts/feather.css" />
-    <link rel="stylesheet" href="../assets/fonts/fontawesome.css" />
-    <link rel="stylesheet" href="../assets/fonts/material.css" />
-    <link rel="stylesheet" href="../assets/css/style.css"/>
-    <!-- This is where your custom gym styles should be loaded -->
-    <link rel="stylesheet" href="../assets/css/member_dashboard.css" id="main-style-link" />
-    <link rel="stylesheet" href="../assets/css/home.css"/>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="description" content="ForgeFit Gym - Our Expert Trainers" />
+    <meta name="keywords" content="gym, fitness, training, workout, health, trainers" />
+    <meta name="author" content="Sniper 2025" />
+    <title>ForgeFit - Our Trainers</title>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;600;700;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../assets/fonts/phosphor/duotone/style.css" />
+    <link rel="stylesheet" href="../assets/fonts/tabler-icons.min.css" />
+    <link rel="stylesheet" href="../assets/fonts/feather.css" />
+    <link rel="stylesheet" href="../assets/fonts/fontawesome.css" />
+    <link rel="stylesheet" href="../assets/fonts/material.css" />
+    <link rel="stylesheet" href="../assets/css/home.css?v=4" id="main-style-link" />
+    
+    <style>
+        main {
+    margin-top: 100px;
+    padding: 40px 20px;
+    max-width: 1400px;
+    margin-left: auto;
+    margin-right: auto;
+    min-height: calc(100vh - 300px);
+    }
 
-  </head>
-
-  <body class="dark-mode"> <!-- Added 'dark-mode' class to showcase the dark theme capabilities -->
-  <header>
+        /* Additional styles for trainers page */
+        .trainers-hero {
+        background: linear-gradient(135deg, #003366 0%, #001d3d 100%);
+        padding: 60px 40px;
+        border-radius: 20px;
+        color: white;
+        margin-bottom: 40px;
+        text-align: center;
+        box-shadow: 0 10px 30px rgba(0, 51, 102, 0.4);
+    }
+        
+        .trainers-hero h1 {
+            font-size: 3rem;
+            font-weight: 900;
+            margin-bottom: 1rem;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+        
+        .trainers-hero p {
+            font-size: 1.2rem;
+            opacity: 0.9;
+        }
+        
+        .trainer-list {
+            max-width: 1200px;
+            margin: 60px auto;
+            padding: 0 20px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 30px;
+        }
+        
+        .trainer-card {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            text-align: center;
+        }
+        
+        .trainer-card:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+        }
+        
+        .trainer-card h3 {
+            font-size: 1.8rem;
+            color: #0f172a;
+            margin-bottom: 10px;
+            font-weight: 700;
+        }
+        
+        .trainer-card p {
+            color: #64748b;
+            font-size: 1rem;
+            margin-bottom: 20px;
+        }
+        
+        .trainer-card .cta-btn {
+            display: inline-block;
+            padding: 12px 30px;
+            background: linear-gradient(135deg, #ff6b6b, #ee5a6f);
+            color: white;
+            text-decoration: none;
+            border-radius: 30px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+        
+        .trainer-card .cta-btn:hover {
+            background: linear-gradient(135deg, #ee5a6f, #ff6b6b);
+            transform: scale(1.05);
+        }
+        
+        .no-trainers {
+            text-align: center;
+            padding: 60px 20px;
+            color: #64748b;
+            font-size: 1.2rem;
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header>
         <nav>
             <div class="logo">ForgeFit</div>
             <ul class="nav-links">
                 <li><a href="dashboard.php">Dashboard</a></li>
-                <li><a href="clients.php">Clients</a></li>
+                <li><a href="clients.php">My Clients</a></li>
                 <li><a href="schedule.php">Schedule</a></li>
-                <li><a href="earnings.php">Earnings</a></li>
                 <li><a href="profile.php">Profile</a></li>
-                <li><a href="../../logout.php">Logout</a></li>
+                <li><a href="../../logout.php" class="cta-btn">Logout</a></li>
             </ul>
             <div class="mobile-menu">
                 <span></span>
@@ -58,178 +160,96 @@ echo "<!-- Current file path: " . __FILE__ . " -->";
             </div>
         </nav>
     </header>
-    <!-- [ Pre-loader ] start -->
-    <div class="loader-bg fixed inset-0 bg-white dark:bg-themedark-cardbg z-[1034]">
-      <div class="loader-track h-[5px] w-full inline-block absolute overflow-hidden top-0">
-        <div class="loader-fill w-[300px] h-[5px] bg-primary-500 absolute top-0 left-0 animate-[hitZak_0.6s_ease-in-out_infinite_alternate]"></div>
-      </div>
-    </div>
-    <!-- [ Pre-loader ] End -->
+    <main>
+    <!-- Trainers Hero Section -->
+    <div class="trainers-hero">
+            <h1>Clients</h1>
+    </div>
 
-    <!-- [ Main Content ] start -->
-    <div class="pc-container">
-      <div class="pc-content">
-
-            <!-- Start Dashboard Content Area -->
-            <div class="dashboard-container">
-                
-                <!-- Dashboard Header -->
-                <div class="dashboard-header">
-                    <h1 class="dashboard-title">Welcome Back, Coach!</h1>
-                    <div class="breadcrumb">
-                        <a href="#">Home</a>
-                        <span class="breadcrumb-separator">/</span>
-                        <span>Dashboard</span>
+    <!-- Trainers List Section -->
+    <section>
+        <div class="trainer-list">
+            <?php if ($result->num_rows > 0): ?>
+                <?php while ($trainer = $result->fetch_assoc()): ?>
+                    <div class="trainer-card">
+                        <div class="feature-icon">💪</div>
+                        <h3><?php echo htmlspecialchars($trainer['name']); ?></h3>
+                        <p><strong>Specialty:</strong> <?php echo htmlspecialchars($trainer['specialty']); ?></p>
+                        <a href="book.php?trainer_id=<?php echo $trainer['id']; ?>" class="cta-btn">Book Session</a>
                     </div>
+                <?php endwhile; ?>
+            <?php else: ?>
+                <div class="no-trainers">
+                    <p>No trainers available at the moment. Please check back later!</p>
                 </div>
+            <?php endif; ?>
+        </div>
+    </section>
+    </main>
 
-                <!-- Earnings/Metrics Grid -->
-                <div class="earnings-grid">
-                    
-                    <!-- Card 1: Daily Goal Progress -->
-                    <div class="earnings-card">
-                        <div class="earnings-header">DAILY WORKOUT GOAL</div>
-                        <div class="earnings-content">
-                            <div class="earnings-amount-container">
-                                <span class="earnings-amount">75%</span>
-                            </div>
-                            <div class="earnings-percentage">2.5 hrs logged</div>
-                        </div>
-                        <div class="progress-bar">
-                            <div class="progress-bar-fill" style="width: 75%;"></div>
-                        </div>
-                    </div>
-
-                    <!-- Card 2: Monthly Attendance -->
-                    <div class="earnings-card">
-                        <div class="earnings-header">MONTHLY ATTENDANCE</div>
-                        <div class="earnings-content">
-                            <div class="earnings-amount-container">
-                                <span class="earnings-amount">12</span>
-                            </div>
-                            <div class="earnings-percentage">Visits this month</div>
-                        </div>
-                        <div class="progress-bar">
-                            <div class="progress-bar-fill" style="width: 60%;"></div>
-                        </div>
-                    </div>
-                    
-                    <!-- Card 3: Weight Goal -->
-                    <div class="earnings-card">
-                        <div class="earnings-header">WEIGHT LOSS GOAL</div>
-                        <div class="earnings-content">
-                            <div class="earnings-amount-container">
-                                <span class="earnings-amount">8 kg</span>
-                            </div>
-                            <div class="earnings-percentage text-cyan-500">4.5 kg achieved</div>
-                        </div>
-                        <div class="progress-bar">
-                            <div class="progress-bar-fill" style="width: 56%;"></div>
-                        </div>
-                    </div>
+    <!-- Footer -->
+    <footer id="contact">
+        <div class="footer-content">
+            <div class="footer-section">
+                <h3>ForgeFit Gym</h3>
+                <p>Transform your body and mind with our expert trainers and world-class facilities.</p>
+                <div class="social-links">
+                    <a href="https://www.facebook.com/koen725/">f</a>
+                    <a href="https://www.instagram.com/oddkoen/">i</a>
                 </div>
-
-                <!-- Recent Activities Section -->
-                <div class="activities-card">
-                    <div class="activities-header">Recent Activities</div>
-                    <div class="activity-list">
-                        
-                        <!-- Activity Item 1 -->
-                        <div class="activity-item">
-                            <div class="activity-icon">
-                                <i class="ph-duotone ph-running text-xl"></i>
-                            </div>
-                            <div class="activity-content">
-                                <div class="activity-title">Cardio Session Completed</div>
-                                <div class="activity-description">45 minutes on the treadmill. Great job!</div>
-                            </div>
-                            <div class="activity-meta">
-                                <span class="activity-timestamp">
-                                    <span class="status-dot complete"></span> 
-                                    Just now
-                                </span>
-                                <div class="activity-actions">
-                                    <button class="action-btn success">View Log</button>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Activity Item 2 -->
-                        <div class="activity-item">
-                            <div class="activity-icon">
-                                <i class="ph-duotone ph-book-open-text text-xl"></i>
-                            </div>
-                            <div class="activity-content">
-                                <div class="activity-title">New Meal Plan Available</div>
-                                <div class="activity-description">Your personalized high-protein plan is ready.</div>
-                            </div>
-                            <div class="activity-meta">
-                                <span class="activity-timestamp">
-                                    <span class="status-dot active"></span> 
-                                    1 hour ago
-                                </span>
-                                <div class="activity-actions">
-                                    <button class="action-btn primary">Download</button>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <!-- Activity Item 3 -->
-                        <div class="activity-item">
-                            <div class="activity-icon">
-                                <i class="ph-duotone ph-calendar-check text-xl"></i>
-                            </div>
-                            <div class="activity-content">
-                                <div class="activity-title">Personal Training Booked</div>
-                                <div class="activity-description">Session with Coach Alex on Friday at 5 PM.</div>
-                            </div>
-                            <div class="activity-meta">
-                                <span class="activity-timestamp">
-                                    <span class="status-dot pending"></span> 
-                                    Yesterday
-                                </span>
-                                <div class="activity-actions">
-                                    <button class="action-btn secondary">Confirm</button>
-                                </div>
-                            </div>
-                        </div>
-                        
-                    </div>
-                </div>
-
             </div>
-            <!-- End Dashboard Content Area -->
+            <div class="footer-section">
+                <h3>Contact Us</h3>
+                <ul>
+                    <li>📍 Arellano Street, Dagupan City</li>
+                    <li>📞 +63 946 540 3747</li>
+                    <li>✉️ forgefit@gmail.com</li>
+                </ul>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <p>&copy; 2025 ForgeFit Gym. All rights reserved.</p>
+        </div>
+    </footer>
 
-      
-        <!-- [ Main Content ] end -->
-      </div>
-    </div>
-    <!-- [ Main Content ] end -->
-    <?php include '../includes/footer.php'; ?>
+    <!-- Required Js -->
+    <script src="../assets/js/plugins/simplebar.min.js"></script>
+    <script src="../assets/js/plugins/popper.min.js"></script>
+    <script src="../assets/js/icon/custom-icon.js"></script>
+    <script src="../assets/js/plugins/feather.min.js"></script>
+    <script src="../assets/js/component.js"></script>
+    <script src="../assets/js/theme.js"></script>
+    <script src="../assets/js/script.js"></script>
 
-    <!-- Required Js - Fixed paths -->
-    <script src="../assets/js/plugins/simplebar.min.js"></script>
-    <script src="../assets/js/plugins/popper.min.js"></script>
-    <script src="../assets/js/icon/custom-icon.js"></script>
-    <script src="../assets/js/plugins/feather.min.js"></script>
-    <script src="../assets/js/component.js"></script>
-    <script src="../assets/js/theme.js"></script>
-    <script src="../assets/js/script.js"></script>
-    <div class="floting-button fixed bottom-[50px] right-[30px] z-[1030]">
-    </div>
+    <script>
+        // Smooth scrolling for navigation links
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) {
+                    target.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'start'
+                    });
+                }
+            });
+        });
 
-    <script>
-        // Ensure the custom scripts match the theme
-      layout_change('false');
-      layout_theme_sidebar_change('dark'); // Keeping sidebar dark to match gym theme
-      change_box_container('false');
-      layout_caption_change('true');
-      layout_rtl_change('false');
-      preset_change('preset-1');
-      main_layout_change('vertical');
-    </script>
-  </body>
-  <!-- [Body] end -->
-
-  </html>
-<?php } ?>
+        // Header background change on scroll
+        window.addEventListener('scroll', function() {
+            const header = document.querySelector('header');
+            if (window.scrollY > 50) {
+                header.style.background = 'linear-gradient(135deg, rgba(15, 23, 42, 0.98) 0%, rgba(30, 41, 59, 0.98) 100%)';
+            } else {
+                header.style.background = 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)';
+            }
+        });
+    </script>
+</body>
+</html>
+<?php
+    // Close connection
+    $conn->close();
+} // end else
+?>

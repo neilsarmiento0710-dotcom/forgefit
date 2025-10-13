@@ -1,55 +1,111 @@
 <?php
 session_start();
-if (isset($_POST['submit'])) {
-} else {
 
-?>
-  <!doctype html>
-  <html lang="en" data-pc-preset="preset-1" data-pc-sidebar-caption="true" data-pc-direction="ltr" dir="ltr" data-pc-theme="light">
-
-  <head>
-    <!-- Debug: Add error reporting -->
-<?php 
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
-echo "<!-- Current file path: " . __FILE__ . " -->";
+
+// Include database connection
+$db_path = '../database/db.php';
+if (!file_exists($db_path)) {
+    die("Error: Database connection file not found.");
+}
+include $db_path;
+
+// Verify connection exists
+if (!isset($conn) || $conn === null) {
+    $conn = getDBConnection();
+}
+
+// Check if user is logged in and is a trainer
+if (!isset($_SESSION['user']) || !isset($_SESSION['user']['id'])) {
+    header("Location: ../../login.php");
+    exit();
+}
+
+// Verify user is a trainer
+if ($_SESSION['user']['role'] !== 'trainer') {
+    header("Location: ../member/dashboard.php");
+    exit();
+}
+
+// Get trainer information
+$user_id = $_SESSION['user']['id'];
+$trainer_id = $_SESSION['user']['trainer_id'];
+
+// Fetch trainer details
+$trainer_sql = "SELECT * FROM trainers WHERE id = ?";
+$trainer_stmt = $conn->prepare($trainer_sql);
+$trainer_stmt->bind_param("i", $trainer_id);
+$trainer_stmt->execute();
+$trainer_info = $trainer_stmt->get_result()->fetch_assoc();
+
+// Get statistics
+// Total unique clients
+$total_clients_sql = "SELECT COUNT(DISTINCT user_id) as total FROM bookings WHERE trainer_id = ?";
+$total_clients_stmt = $conn->prepare($total_clients_sql);
+$total_clients_stmt->bind_param("i", $trainer_id);
+$total_clients_stmt->execute();
+$total_clients = $total_clients_stmt->get_result()->fetch_assoc()['total'];
+
+// Total bookings
+$total_bookings_sql = "SELECT COUNT(*) as total FROM bookings WHERE trainer_id = ?";
+$total_bookings_stmt = $conn->prepare($total_bookings_sql);
+$total_bookings_stmt->bind_param("i", $trainer_id);
+$total_bookings_stmt->execute();
+$total_bookings = $total_bookings_stmt->get_result()->fetch_assoc()['total'];
+
+// Upcoming sessions (today and future)
+$upcoming_sessions_sql = "SELECT COUNT(*) as total FROM bookings 
+                          WHERE trainer_id = ? 
+                          AND booking_date >= CURDATE() 
+                          AND status = 'booked'";
+$upcoming_stmt = $conn->prepare($upcoming_sessions_sql);
+$upcoming_stmt->bind_param("i", $trainer_id);
+$upcoming_stmt->execute();
+$upcoming_sessions = $upcoming_stmt->get_result()->fetch_assoc()['total'];
+
+// Fetch recent client bookings with user details
+$bookings_sql = "SELECT b.*, u.username, u.email, u.phone 
+                 FROM bookings b 
+                 JOIN users u ON b.user_id = u.id 
+                 WHERE b.trainer_id = ? 
+                 ORDER BY b.booking_date DESC, b.booking_time DESC 
+                 LIMIT 10";
+$bookings_stmt = $conn->prepare($bookings_sql);
+$bookings_stmt->bind_param("i", $trainer_id);
+$bookings_stmt->execute();
+$bookings_result = $bookings_stmt->get_result();
 ?>
-    
-<title>Dashboard</title>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=0, minimal-ui" />
-<meta http-equiv="X-UA-Compatible" content="IE=edge" />
-<meta name="description" content="." />
-<meta name="keywords" content="." />
-<meta name="author" content="Sniper 2025" />
-    
-    <!-- Fixed paths - since you're in member/ and assets are in dist/ -->
-    <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@300;400;500;600&display=swap" rel="stylesheet" />
-    <!-- Added Montserrat link, assuming the custom CSS uses it -->
+<!doctype html>
+<html lang="en">
+<head>
+    <title>Trainer Dashboard - ForgeFit</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=0, minimal-ui" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="description" content="ForgeFit Trainer Dashboard" />
+    <meta name="author" content="Sniper 2025" />
+    
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet"> 
-    <link rel="stylesheet" href="../assets/fonts/phosphor/duotone/style.css" />
-    <link rel="stylesheet" href="../assets/fonts/tabler-icons.min.css" />
-    <link rel="stylesheet" href="../assets/fonts/feather.css" />
-    <link rel="stylesheet" href="../assets/fonts/fontawesome.css" />
-    <link rel="stylesheet" href="../assets/fonts/material.css" />
-    <link rel="stylesheet" href="../assets/css/style.css"/>
-    <!-- This is where your custom gym styles should be loaded -->
-    <link rel="stylesheet" href="../assets/css/member_dashboard.css" id="main-style-link" />
-    <link rel="stylesheet" href="../assets/css/home.css"/>
+    <link rel="stylesheet" href="../assets/fonts/phosphor/duotone/style.css" />
+    <link rel="stylesheet" href="../assets/fonts/tabler-icons.min.css" />
+    <link rel="stylesheet" href="../assets/fonts/feather.css" />
+    <link rel="stylesheet" href="../assets/fonts/fontawesome.css" />
+    <link rel="stylesheet" href="../assets/fonts/material.css" />
+    <link rel="stylesheet" href="../assets/css/home.css?v=4"/> 
+    <link rel="stylesheet" href="../assets/css/member_dashboard.css" id="main-style-link"/> 
+</head>
 
-  </head>
-
-  <body class="dark-mode"> <!-- Added 'dark-mode' class to showcase the dark theme capabilities -->
-  <header>
+<body>
+    <header>
         <nav>
             <div class="logo">ForgeFit</div>
             <ul class="nav-links">
-                <li><a href="dashboard.php">Dashboard</a></li>
-                <li><a href="clients.php">Clients</a></li>
+                <li><a href="dashboard.php" class="active">Dashboard</a></li>
+                <li><a href="clients.php">My Clients</a></li>
                 <li><a href="schedule.php">Schedule</a></li>
-                <li><a href="earnings.php">Earnings</a></li>
                 <li><a href="profile.php">Profile</a></li>
-                <li><a href="../../logout.php">Logout</a></li>
+                <li><a href="../../logout.php" class="cta-btn">Logout</a></li>
             </ul>
             <div class="mobile-menu">
                 <span></span>
@@ -58,178 +114,207 @@ echo "<!-- Current file path: " . __FILE__ . " -->";
             </div>
         </nav>
     </header>
-    <!-- [ Pre-loader ] start -->
-    <div class="loader-bg fixed inset-0 bg-white dark:bg-themedark-cardbg z-[1034]">
-      <div class="loader-track h-[5px] w-full inline-block absolute overflow-hidden top-0">
-        <div class="loader-fill w-[300px] h-[5px] bg-primary-500 absolute top-0 left-0 animate-[hitZak_0.6s_ease-in-out_infinite_alternate]"></div>
-      </div>
-    </div>
-    <!-- [ Pre-loader ] End -->
-
-    <!-- [ Main Content ] start -->
-    <div class="pc-container">
-      <div class="pc-content">
-
-            <!-- Start Dashboard Content Area -->
-            <div class="dashboard-container">
-                
-                <!-- Dashboard Header -->
-                <div class="dashboard-header">
-                    <h1 class="dashboard-title">Welcome Back, Coach!</h1>
-                    <div class="breadcrumb">
-                        <a href="#">Home</a>
-                        <span class="breadcrumb-separator">/</span>
-                        <span>Dashboard</span>
-                    </div>
-                </div>
-
-                <!-- Earnings/Metrics Grid -->
-                <div class="earnings-grid">
-                    
-                    <!-- Card 1: Daily Goal Progress -->
-                    <div class="earnings-card">
-                        <div class="earnings-header">DAILY WORKOUT GOAL</div>
-                        <div class="earnings-content">
-                            <div class="earnings-amount-container">
-                                <span class="earnings-amount">75%</span>
-                            </div>
-                            <div class="earnings-percentage">2.5 hrs logged</div>
-                        </div>
-                        <div class="progress-bar">
-                            <div class="progress-bar-fill" style="width: 75%;"></div>
-                        </div>
-                    </div>
-
-                    <!-- Card 2: Monthly Attendance -->
-                    <div class="earnings-card">
-                        <div class="earnings-header">MONTHLY ATTENDANCE</div>
-                        <div class="earnings-content">
-                            <div class="earnings-amount-container">
-                                <span class="earnings-amount">12</span>
-                            </div>
-                            <div class="earnings-percentage">Visits this month</div>
-                        </div>
-                        <div class="progress-bar">
-                            <div class="progress-bar-fill" style="width: 60%;"></div>
-                        </div>
-                    </div>
-                    
-                    <!-- Card 3: Weight Goal -->
-                    <div class="earnings-card">
-                        <div class="earnings-header">WEIGHT LOSS GOAL</div>
-                        <div class="earnings-content">
-                            <div class="earnings-amount-container">
-                                <span class="earnings-amount">8 kg</span>
-                            </div>
-                            <div class="earnings-percentage text-cyan-500">4.5 kg achieved</div>
-                        </div>
-                        <div class="progress-bar">
-                            <div class="progress-bar-fill" style="width: 56%;"></div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Recent Activities Section -->
-                <div class="activities-card">
-                    <div class="activities-header">Recent Activities</div>
-                    <div class="activity-list">
-                        
-                        <!-- Activity Item 1 -->
-                        <div class="activity-item">
-                            <div class="activity-icon">
-                                <i class="ph-duotone ph-running text-xl"></i>
-                            </div>
-                            <div class="activity-content">
-                                <div class="activity-title">Cardio Session Completed</div>
-                                <div class="activity-description">45 minutes on the treadmill. Great job!</div>
-                            </div>
-                            <div class="activity-meta">
-                                <span class="activity-timestamp">
-                                    <span class="status-dot complete"></span> 
-                                    Just now
-                                </span>
-                                <div class="activity-actions">
-                                    <button class="action-btn success">View Log</button>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Activity Item 2 -->
-                        <div class="activity-item">
-                            <div class="activity-icon">
-                                <i class="ph-duotone ph-book-open-text text-xl"></i>
-                            </div>
-                            <div class="activity-content">
-                                <div class="activity-title">New Meal Plan Available</div>
-                                <div class="activity-description">Your personalized high-protein plan is ready.</div>
-                            </div>
-                            <div class="activity-meta">
-                                <span class="activity-timestamp">
-                                    <span class="status-dot active"></span> 
-                                    1 hour ago
-                                </span>
-                                <div class="activity-actions">
-                                    <button class="action-btn primary">Download</button>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <!-- Activity Item 3 -->
-                        <div class="activity-item">
-                            <div class="activity-icon">
-                                <i class="ph-duotone ph-calendar-check text-xl"></i>
-                            </div>
-                            <div class="activity-content">
-                                <div class="activity-title">Personal Training Booked</div>
-                                <div class="activity-description">Session with Coach Alex on Friday at 5 PM.</div>
-                            </div>
-                            <div class="activity-meta">
-                                <span class="activity-timestamp">
-                                    <span class="status-dot pending"></span> 
-                                    Yesterday
-                                </span>
-                                <div class="activity-actions">
-                                    <button class="action-btn secondary">Confirm</button>
-                                </div>
-                            </div>
-                        </div>
-                        
-                    </div>
-                </div>
-
+    
+    <!-- Main Content -->
+    <main>
+        <!-- Success Message Display -->
+        <?php if (isset($_SESSION['success_message'])): ?>
+            <div class="success-message">
+                <span class="success-icon">✓</span>
+                <?php 
+                    echo htmlspecialchars($_SESSION['success_message']); 
+                    unset($_SESSION['success_message']);
+                ?>
             </div>
-            <!-- End Dashboard Content Area -->
+        <?php endif; ?>
 
-      
-        <!-- [ Main Content ] end -->
-      </div>
-    </div>
-    <!-- [ Main Content ] end -->
-    <?php include '../includes/footer.php'; ?>
+        <!-- Dashboard Header -->
+        <div class="dashboard-hero">
+            <h1 class="dashboard-title">Welcome Back, <?php echo htmlspecialchars($trainer_info['name']); ?>!</h1>
+            <div class="breadcrumb">
+                <a href="#">Trainer Portal</a>
+                <span class="breadcrumb-separator">/</span>
+                <span>Dashboard</span>
+            </div>
+            <p style="color: #90e0ef; margin-top: 10px; font-size: 1rem;">
+                Specialty: <?php echo htmlspecialchars($trainer_info['specialty']); ?>
+            </p>
+        </div>
 
-    <!-- Required Js - Fixed paths -->
-    <script src="../assets/js/plugins/simplebar.min.js"></script>
-    <script src="../assets/js/plugins/popper.min.js"></script>
-    <script src="../assets/js/icon/custom-icon.js"></script>
-    <script src="../assets/js/plugins/feather.min.js"></script>
-    <script src="../assets/js/component.js"></script>
-    <script src="../assets/js/theme.js"></script>
-    <script src="../assets/js/script.js"></script>
-    <div class="floting-button fixed bottom-[50px] right-[30px] z-[1030]">
-    </div>
+        <!-- Metrics Grid -->
+        <div class="earnings-grid">
+            <!-- Card 1: Total Clients -->
+            <div class="earnings-card">
+                <div class="earnings-header">👥 TOTAL CLIENTS</div>
+                <div class="earnings-content">
+                    <div class="earnings-amount-container">
+                        <span class="earnings-amount"><?php echo $total_clients; ?></span>
+                    </div>
+                    <div class="earnings-percentage">Unique Clients</div>
+                </div>
+                <div class="progress-bar">
+                    <div class="progress-bar-fill" style="width: <?php echo min(($total_clients / 50) * 100, 100); ?>%;"></div>
+                </div>
+            </div>
+            
+            <!-- Card 2: Total Bookings -->
+            <div class="earnings-card">
+                <div class="earnings-header">📊 TOTAL SESSIONS</div>
+                <div class="earnings-content">
+                    <div class="earnings-amount-container">
+                        <span class="earnings-amount"><?php echo $total_bookings; ?></span>
+                    </div>
+                    <div class="earnings-percentage text-cyan-500">All Time</div>
+                </div>
+                <div class="progress-bar">
+                    <div class="progress-bar-fill" style="width: <?php echo min(($total_bookings / 100) * 100, 100); ?>%; background: linear-gradient(135deg, #06b6d4, #0891b2);"></div>
+                </div>
+            </div>
 
-    <script>
-        // Ensure the custom scripts match the theme
-      layout_change('false');
-      layout_theme_sidebar_change('dark'); // Keeping sidebar dark to match gym theme
-      change_box_container('false');
-      layout_caption_change('true');
-      layout_rtl_change('false');
-      preset_change('preset-1');
-      main_layout_change('vertical');
-    </script>
-  </body>
-  <!-- [Body] end -->
+            <!-- Card 3: Upcoming Sessions -->
+            <div class="earnings-card">
+                <div class="earnings-header">🗓️ UPCOMING SESSIONS</div>
+                <div class="earnings-content">
+                    <div class="earnings-amount-container">
+                        <span class="earnings-amount"><?php echo $upcoming_sessions; ?></span>
+                    </div>
+                    <div class="earnings-percentage" style="background: linear-gradient(135deg, #10b981, #059669);">Scheduled</div>
+                </div>
+                <div class="progress-bar">
+                    <div class="progress-bar-fill" style="width: <?php echo min(($upcoming_sessions / 20) * 100, 100); ?>%; background: linear-gradient(135deg, #10b981, #059669);"></div>
+                </div>
+            </div>
+        </div>
 
-  </html>
-<?php } ?>
+        <!-- Client Bookings List -->
+        <div class="activities-card">
+            <div class="activities-header">🎯 CLIENT BOOKINGS</div>
+            <div class="activity-list">
+                <?php if ($bookings_result->num_rows > 0): ?>
+                    <?php while ($booking = $bookings_result->fetch_assoc()): ?>
+                        <div class="activity-item">
+                            <div class="activity-icon">
+                                <i class="ph-duotone ph-user-circle"></i>
+                            </div>
+                            <div class="activity-content">
+                                <div class="activity-title"><?php echo htmlspecialchars($booking['username']); ?></div>
+                                <div class="activity-description">
+                                    📅 <?php echo date('F j, Y', strtotime($booking['booking_date'])); ?> at 
+                                    <?php echo date('g:i A', strtotime($booking['booking_time'])); ?>
+                                    <?php if ($booking['email']): ?>
+                                        <br>📧 <?php echo htmlspecialchars($booking['email']); ?>
+                                    <?php endif; ?>
+                                    <?php if ($booking['phone']): ?>
+                                        | 📞 <?php echo htmlspecialchars($booking['phone']); ?>
+                                    <?php endif; ?>
+                                </div>
+                            </div>
+                            <div class="activity-meta">
+                                <span class="activity-timestamp">
+                                    <span class="status-dot <?php echo $booking['status'] === 'booked' ? 'pending' : ''; ?>"></span> 
+                                    <?php echo ucfirst($booking['status']); ?>
+                                </span>
+                            </div>
+                        </div>
+                    <?php endwhile; ?>
+                <?php else: ?>
+                    <p style="text-align: center; color: #64748b; padding: 20px;">
+                        No client bookings yet. Start building your client base! 💪
+                    </p>
+                <?php endif; ?>
+            </div>
+        </div>
+
+        <!-- Quick Stats Summary -->
+        <div class="activities-card" style="margin-top: 30px;">
+            <div class="activities-header">📈 PERFORMANCE OVERVIEW</div>
+            <div style="padding: 20px;">
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px;">
+                    <div style="background: #f0f9ff; padding: 20px; border-radius: 10px; text-align: center; border-left: 4px solid #0096c7;">
+                        <div style="font-size: 1.5rem; font-weight: 900; color: #0096c7;">
+                            <?php 
+                            // Get this month's bookings
+                            $month_sql = "SELECT COUNT(*) as total FROM bookings 
+                                         WHERE trainer_id = ? 
+                                         AND MONTH(booking_date) = MONTH(CURDATE()) 
+                                         AND YEAR(booking_date) = YEAR(CURDATE())";
+                            $month_stmt = $conn->prepare($month_sql);
+                            $month_stmt->bind_param("i", $trainer_id);
+                            $month_stmt->execute();
+                            echo $month_stmt->get_result()->fetch_assoc()['total'];
+                            ?>
+                        </div>
+                        <div style="color: #023e8a; font-size: 0.9rem; margin-top: 5px; font-weight: 600;">This Month</div>
+                    </div>
+                    
+                    <div style="background: #f0f9ff; padding: 20px; border-radius: 10px; text-align: center; border-left: 4px solid #06b6d4;">
+                        <div style="font-size: 1.5rem; font-weight: 900; color: #06b6d4;">
+                            <?php 
+                            // Get today's bookings
+                            $today_sql = "SELECT COUNT(*) as total FROM bookings 
+                                         WHERE trainer_id = ? 
+                                         AND booking_date = CURDATE()";
+                            $today_stmt = $conn->prepare($today_sql);
+                            $today_stmt->bind_param("i", $trainer_id);
+                            $today_stmt->execute();
+                            echo $today_stmt->get_result()->fetch_assoc()['total'];
+                            ?>
+                        </div>
+                        <div style="color: #023e8a; font-size: 0.9rem; margin-top: 5px; font-weight: 600;">Today's Sessions</div>
+                    </div>
+                    
+                    <div style="background: #f0f9ff; padding: 20px; border-radius: 10px; text-align: center; border-left: 4px solid #10b981;">
+                        <div style="font-size: 1.5rem; font-weight: 900; color: #10b981;">
+                            <?php 
+                            // Calculate completion rate
+                            $completed_sql = "SELECT COUNT(*) as total FROM bookings 
+                                            WHERE trainer_id = ? 
+                                            AND status = 'completed'";
+                            $completed_stmt = $conn->prepare($completed_sql);
+                            $completed_stmt->bind_param("i", $trainer_id);
+                            $completed_stmt->execute();
+                            $completed = $completed_stmt->get_result()->fetch_assoc()['total'];
+                            $completion_rate = $total_bookings > 0 ? round(($completed / $total_bookings) * 100) : 0;
+                            echo $completion_rate . "%";
+                            ?>
+                        </div>
+                        <div style="color: #023e8a; font-size: 0.9rem; margin-top: 5px; font-weight: 600;">Completion Rate</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <footer>
+        <div class="footer-bottom">
+            <p>&copy; 2025 ForgeFit Gym. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <script src="../assets/js/plugins/feather.min.js"></script>
+    <script src="../assets/js/icon/custom-icon.js"></script>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const mobileMenu = document.querySelector('.mobile-menu');
+            const navLinks = document.querySelector('.nav-links');
+            
+            if (mobileMenu) {
+                mobileMenu.addEventListener('click', function() {
+                    navLinks.classList.toggle('active');
+                });
+            }
+
+            // Header background change on scroll
+            window.addEventListener('scroll', function() {
+                const header = document.querySelector('header');
+                if (window.scrollY > 50) {
+                    header.style.background = 'linear-gradient(135deg, rgba(15, 23, 42, 0.98) 0%, rgba(30, 41, 59, 0.98) 100%)';
+                } else {
+                    header.style.background = 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)';
+                }
+            });
+        });
+    </script>
+</body>
+</html>

@@ -1,5 +1,43 @@
 <?php
 session_start();
+
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
+
+// Include database connection
+$db_path = '../database/db.php';
+if (!file_exists($db_path)) {
+    die("Error: Database connection file not found.");
+}
+include $db_path;
+
+// Verify connection exists
+if (!isset($conn) || $conn === null) {
+    $conn = getDBConnection();
+}
+
+// Check if user is logged in
+if (!isset($_SESSION['user']) || !isset($_SESSION['user']['id'])) {
+    header("Location: ../../login.php");
+    exit();
+}
+
+// Get user information
+$user_id = $_SESSION['user']['id'];
+$user_name = $_SESSION['user']['username'];
+
+// Fetch user's bookings
+$bookings_sql = "SELECT b.*, t.name as trainer_name, t.specialty 
+                 FROM bookings b 
+                 JOIN trainers t ON b.trainer_id = t.id 
+                 WHERE b.user_id = ? 
+                 ORDER BY b.booking_date DESC, b.booking_time DESC 
+                 LIMIT 5";
+$bookings_stmt = $conn->prepare($bookings_sql);
+$bookings_stmt->bind_param("i", $user_id);
+$bookings_stmt->execute();
+$bookings_result = $bookings_stmt->get_result();
+
 if (isset($_POST['submit'])) {
 } else {
 ?>
@@ -20,54 +58,24 @@ if (isset($_POST['submit'])) {
     
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet"> 
     <link rel="stylesheet" href="../assets/fonts/phosphor/duotone/style.css" />
-    <link rel="stylesheet" href="../assets/css/member_dashboard.css" />
-    <link rel="stylesheet" href="../assets/css/home.css"/>
-    
-    <style>
-        html, body {
-            height: 100%;
-            margin: 0;
-            padding: 0;
-        }
-        
-        body {
-            display: flex;
-            flex-direction: column;
-            min-height: 100vh;
-        }
-        
-        main {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            margin-top: 80px;
-            padding: 2rem;
-            max-width: 1400px;
-            margin-left: auto;
-            margin-right: auto;
-            width: 100%;
-        }
-        
-        header {
-            width: 100%;
-        }
-        
-        footer {
-            margin-top: auto;
-        }
-    </style>
+    <link rel="stylesheet" href="../assets/fonts/tabler-icons.min.css" />
+    <link rel="stylesheet" href="../assets/fonts/feather.css" />
+    <link rel="stylesheet" href="../assets/fonts/fontawesome.css" />
+    <link rel="stylesheet" href="../assets/fonts/material.css" />
+    <link rel="stylesheet" href="../assets/css/home.css?v=4"/> 
+    <link rel="stylesheet" href="../assets/css/member_dashboard.css" id="main-style-link"/> 
 </head>
 
-<body class="dark-mode">
+<body>
     <header>
         <nav>
             <div class="logo">ForgeFit</div>
             <ul class="nav-links">
                 <li><a href="dashboard.php">Dashboard</a></li>
-                <li><a href="classes.php">Classes</a></li>
+                <li><a href="classes.php">Bookings</a></li>
                 <li><a href="membership.php">Membership</a></li>
                 <li><a href="profile.php">Profile</a></li>
-                <li><a href="../../logout.php">Logout</a></li>
+                <li><a href="../../logout.php" class="cta-btn">Logout</a></li>
             </ul>
             <div class="mobile-menu">
                 <span></span>
@@ -79,8 +87,18 @@ if (isset($_POST['submit'])) {
     
     <!-- Main Content -->
     <main>
+            <!-- Success Message Display -->
+        <?php if (isset($_SESSION['success_message'])): ?>
+            <div class="success-message">
+            <span class="success-icon">✓</span>
+            <?php 
+                echo htmlspecialchars($_SESSION['success_message']); 
+                unset($_SESSION['success_message']); // Clear it after showing
+            ?>
+            </div>
+        <?php endif; ?>
         <!-- Dashboard Header -->
-        <div class="dashboard-header">
+        <div class="dashboard-hero">
             <h1 class="dashboard-title">Welcome Back, Member!</h1>
             <div class="breadcrumb">
                 <a href="#">Home</a>
@@ -91,117 +109,73 @@ if (isset($_POST['submit'])) {
 
         <!-- Metrics Grid -->
         <div class="earnings-grid">
-            <!-- Card 1: Daily Goal Progress -->
+            <!-- Card 1: Consistency -->
             <div class="earnings-card">
-                <div class="earnings-header">DAILY WORKOUT GOAL</div>
+                <div class="earnings-header">💪 CONSISTENCY</div>
                 <div class="earnings-content">
                     <div class="earnings-amount-container">
-                        <span class="earnings-amount">75%</span>
+                        <span class="earnings-amount">15</span>
                     </div>
-                    <div class="earnings-percentage">2.5 hrs logged</div>
-                </div>
-                <div class="progress-bar">
-                    <div class="progress-bar-fill" style="width: 75%;"></div>
-                </div>
-            </div>
-
-            <!-- Card 2: Monthly Attendance -->
-            <div class="earnings-card">
-                <div class="earnings-header">MONTHLY ATTENDANCE</div>
-                <div class="earnings-content">
-                    <div class="earnings-amount-container">
-                        <span class="earnings-amount">12</span>
-                    </div>
-                    <div class="earnings-percentage">Visits this month</div>
+                    <div class="earnings-percentage">Days</div>
                 </div>
                 <div class="progress-bar">
                     <div class="progress-bar-fill" style="width: 60%;"></div>
                 </div>
             </div>
             
-            <!-- Card 3: Weight Goal -->
+            <!-- Card 2: Membership Expiration -->
             <div class="earnings-card">
-                <div class="earnings-header">WEIGHT LOSS GOAL</div>
+                <div class="earnings-header">📅 MEMBERSHIP EXPIRATION</div>
                 <div class="earnings-content">
                     <div class="earnings-amount-container">
-                        <span class="earnings-amount">8 kg</span>
+                        <span class="earnings-amount">30</span>
                     </div>
-                    <div class="earnings-percentage text-cyan-500">4.5 kg achieved</div>
+                    <div class="earnings-percentage text-cyan-500">Days Left</div>
                 </div>
                 <div class="progress-bar">
-                    <div class="progress-bar-fill" style="width: 56%;"></div>
+                    <div class="progress-bar-fill" style="width: 56%; background: linear-gradient(135deg, #06b6d4, #0891b2);"></div>
                 </div>
             </div>
         </div>
 
-        <!-- Recent Activities Section -->
         <div class="activities-card">
-            <div class="activities-header">Recent Activities</div>
+            <div class="activities-header">🎯 YOUR BOOKINGS</div>
             <div class="activity-list">
-                <!-- Activity Item 1 -->
-                <div class="activity-item">
-                    <div class="activity-icon">
-                        <i class="ph-duotone ph-running text-xl"></i>
-                    </div>
-                    <div class="activity-content">
-                        <div class="activity-title">Cardio Session Completed</div>
-                        <div class="activity-description">45 minutes on the treadmill. Great job!</div>
-                    </div>
-                    <div class="activity-meta">
-                        <span class="activity-timestamp">
-                            <span class="status-dot complete"></span> 
-                            Just now
-                        </span>
-                        <div class="activity-actions">
-                            <button class="action-btn success">View Log</button>
+                <?php if ($bookings_result->num_rows > 0): ?>
+                    <?php while ($booking = $bookings_result->fetch_assoc()): ?>
+                        <div class="activity-item">
+                            <div class="activity-icon">
+                                <i class="ph-duotone ph-calendar-check"></i>
+                            </div>
+                            <div class="activity-content">
+                                <div class="activity-title">Session with <?php echo htmlspecialchars($booking['trainer_name']); ?></div>
+                                <div class="activity-description">
+                                    <?php echo date('F j, Y', strtotime($booking['booking_date'])); ?> at 
+                                    <?php echo date('g:i A', strtotime($booking['booking_time'])); ?>
+                                    - <?php echo htmlspecialchars($booking['specialty']); ?>
+                                </div>
+                            </div>
+                            <div class="activity-meta">
+                                <span class="activity-timestamp">
+                                    <span class="status-dot pending"></span> 
+                                    <?php echo ucfirst($booking['status']); ?>
+                                </span>
+                            </div>
                         </div>
-                    </div>
-                </div>
-
-                <!-- Activity Item 2 -->
-                <div class="activity-item">
-                    <div class="activity-icon">
-                        <i class="ph-duotone ph-book-open-text text-xl"></i>
-                    </div>
-                    <div class="activity-content">
-                        <div class="activity-title">New Meal Plan Available</div>
-                        <div class="activity-description">Your personalized high-protein plan is ready.</div>
-                    </div>
-                    <div class="activity-meta">
-                        <span class="activity-timestamp">
-                            <span class="status-dot active"></span> 
-                            1 hour ago
-                        </span>
-                        <div class="activity-actions">
-                            <button class="action-btn primary">Download</button>
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- Activity Item 3 -->
-                <div class="activity-item">
-                    <div class="activity-icon">
-                        <i class="ph-duotone ph-calendar-check text-xl"></i>
-                    </div>
-                    <div class="activity-content">
-                        <div class="activity-title">Personal Training Booked</div>
-                        <div class="activity-description">Session with Coach Alex on Friday at 5 PM.</div>
-                    </div>
-                    <div class="activity-meta">
-                        <span class="activity-timestamp">
-                            <span class="status-dot pending"></span> 
-                            Yesterday
-                        </span>
-                        <div class="activity-actions">
-                            <button class="action-btn secondary">Confirm</button>
-                        </div>
-                    </div>
-                </div>
+                    <?php endwhile; ?>
+                <?php else: ?>
+                    <p style="text-align: center; color: #64748b; padding: 20px;">No bookings yet. <a href="classes.php" style="color: #ff6b6b;">Book your first session!</a></p>
+                <?php endif; ?>
             </div>
         </div>
     </main>
 
-    <!-- Scripts -->
+    <footer>
+        <div class="footer-bottom">
+            <p>&copy; 2025 ForgeFit Gym. All rights reserved.</p>
+        </div>
+    </footer>
+
     <script src="../assets/js/plugins/feather.min.js"></script>
     <script src="../assets/js/icon/custom-icon.js"></script>
     
@@ -215,13 +189,18 @@ if (isset($_POST['submit'])) {
                     navLinks.classList.toggle('active');
                 });
             }
+
+            // Header background change on scroll
+            window.addEventListener('scroll', function() {
+                const header = document.querySelector('header');
+                if (window.scrollY > 50) {
+                    header.style.background = 'linear-gradient(135deg, rgba(15, 23, 42, 0.98) 0%, rgba(30, 41, 59, 0.98) 100%)';
+                } else {
+                    header.style.background = 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)';
+                }
+            });
         });
     </script>
 </body>
-<footer>
-    <div class="footer-bottom">
-            <p>&copy; 2025 ForgeFit Gym. All rights reserved.</p>
-    </div>
-</footer>
 </html>
 <?php } ?>

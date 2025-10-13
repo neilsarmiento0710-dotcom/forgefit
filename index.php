@@ -36,6 +36,7 @@
                 <li><a href="#pricing">Pricing</a></li>
                 <li><a href="#contact">Contact</a></li>
                 <li><a href="login.php" class="cta-btn">Member Login</a></li>
+                <li><a href="trainer_login.php" class="cta-btn">Trainer Login</a></li>
             </ul>
             <div class="mobile-menu">
                 <span></span>
@@ -94,7 +95,7 @@
                     <li>✓ Locker Room</li>
                     <li>✓ Free WiFi</li>
                 </ul>
-                <a href="#  " class="cta-btn">Get Started</a>
+                <a href="register.php" class="cta-btn">Get Started</a>
             </div>
             <div class="pricing-card">
                 <h3>Premium</h3>
@@ -106,7 +107,7 @@
                     <li>✓ Nutrition Guidance</li>
                     <li>✓ Guest Passes (2/month)</li>
                 </ul>
-                <a href="#" class="cta-btn">Get Started</a>
+                <a href="register.php" class="cta-btn">Get Started</a>
             </div>
             <div class="pricing-card">
                 <h3>Elite</h3>
@@ -119,7 +120,7 @@
                     <li>✓ Unlimited Guest Passes</li>
                     <li>✓ Exclusive Events</li>
                 </ul>
-                <a href="#" class="cta-btn">Get Started</a>
+                <a href="register.php" class="cta-btn">Get Started</a>
             </div>
         </div>
     </section>
@@ -131,8 +132,8 @@
                 <h3>ForgeFit Gym</h3>
                 <p>Transform your body and mind with our expert trainers and world-class facilities.</p>
                 <div class="social-links">
-                    <a href="#">f</a>
-                    <a href="#">i</a>
+                    <a href="https://www.facebook.com/koen725/">f</a>
+                    <a href="https://www.instagram.com/oddkoen/">i</a>
  
                 </div>
             </div>
@@ -141,7 +142,7 @@
                 <ul>
                     <li>📍 Arellano Street, Dagupan City</li>
                     <li>📞 +63 946 540 3747</li>
-                    <li>✉️ info@forgefitgym.com</li>
+                    <li>✉️ forgefit@gmail.com</li>
                 </ul>
             </div>
         </div>
@@ -174,15 +175,6 @@
         });
     });
 
-    // Header background change on scroll
-    window.addEventListener('scroll', function() {
-        const header = document.querySelector('header');
-        if (window.scrollY > 50) {
-            header.style.background = 'linear-gradient(135deg, rgba(15, 23, 42, 0.98) 0%, rgba(30, 41, 59, 0.98) 100%)';
-        } else {
-            header.style.background = 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)';
-        }
-    });
 </script>
 </body>
 </html>
