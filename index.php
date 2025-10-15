@@ -35,8 +35,8 @@
                 <li><a href="#features">About Us</a></li>
                 <li><a href="#pricing">Pricing</a></li>
                 <li><a href="#contact">Contact</a></li>
-                <li><a href="login.php" class="cta-btn">Member Login</a></li>
-                <li><a href="trainer_login.php" class="cta-btn">Trainer Login</a></li>
+                <li><a href="login.php" class="cta-btn">Login</a></li>
+                <li><a href="register.php" class="cta-btn">Register</a></li>
             </ul>
             <div class="mobile-menu">
                 <span></span>
@@ -154,7 +154,6 @@
     <!-- Required Js -->
     <script src="./dist/assets/js/plugins/simplebar.min.js"></script>
     <script src="./dist/assets/js/plugins/popper.min.js"></script>
-    <script src="./dist/assets/js/icon/custom-icon.js"></script>
     <script src="./dist/assets/js/plugins/feather.min.js"></script>
     <script src="./dist/assets/js/component.js"></script>
     <script src="./dist/assets/js/theme.js"></script>

@@ -131,6 +131,7 @@ $payments_result = $payments_stmt->get_result();
             <div class="logo">ForgeFit</div>
             <ul class="nav-links">
                 <li><a href="dashboard.php">Dashboard</a></li>
+                <li><a href="trainers.php">Trainers</a></li>
                 <li><a href="classes.php">Bookings</a></li>
                 <li><a href="membership.php">Membership</a></li>
                 <li><a href="profile.php">Profile</a></li>

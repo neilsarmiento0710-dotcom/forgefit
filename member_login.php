@@ -8,38 +8,36 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     $username = $_POST["username"] ?? "";
     $password = $_POST["password"] ?? "";
 
-if (!empty($username) && !empty($password)) {
-    $conn = getDBConnection();
-    
+    if (!empty($username) && !empty($password)) {
+        $conn = getDBConnection();
 
-    $stmt = $conn->prepare("SELECT id, username, password_hash, role FROM users WHERE username = ?");
-    $stmt->bind_param("s", $username);
-    $stmt->execute();
-    $result = $stmt->get_result();
-    
-    if ($result->num_rows === 1) {
-        $user = $result->fetch_assoc();
-        
-        if (password_verify($password, $user['password_hash'])) {
-            unset($user['password_hash']);
-            $_SESSION["user"] = $user;
-            session_regenerate_id(true);
+        $stmt = $conn->prepare("SELECT id, username, password_hash, role FROM users WHERE username = ?");
+        $stmt->bind_param("s", $username);
+        $stmt->execute();
+        $result = $stmt->get_result();
 
-            if ($user["role"] === "member") {
-                header("Location: ./dist/member/dashboard.php");
-            } elseif ($user["role"] === "trainer") {  
-                header("Location: ./dist/trainer/dashboard.php");
-            } elseif ($user["role"] === "management") {
-                header("Location: ./dist/admin/dashboard.php");
-            }
-            exit;
+        if ($result->num_rows === 1) {
+            $user = $result->fetch_assoc();
+
+            if (password_verify($password, $user['password_hash'])) {
+                // 🚫 Block non-member logins
+                if ($user["role"] !== "member") {
+                    $error = "Access denied. Only members can log in here.";
+                } else {
+                    unset($user['password_hash']);
+                    $_SESSION["user"] = $user;
+                    session_regenerate_id(true);
+
+                    header("Location: ./dist/member/dashboard.php");
+                    exit;
+                }
             } else {
                 $error = "Invalid username or password.";
             }
         } else {
             $error = "Invalid username or password.";
         }
-        
+
         $stmt->close();
         $conn->close();
     } else {
@@ -91,7 +89,7 @@ if (!empty($username) && !empty($password)) {
         <div class="login-wrapper">
             <!-- Logo -->
             <div class="login-logo">
-                <h1>ForgeFit</h1>
+                <h1>Member</h1>
             </div>
 
             <!-- Login Card -->
@@ -105,16 +103,34 @@ if (!empty($username) && !empty($password)) {
                 <?php endif; ?>
 
                 <form method="POST">
+                    <div class="form-group">
+                        <label for="username">Username</label>
+                        <input 
+                            type="text" 
+                            id="username"
+                            name="username" 
+                            placeholder="Enter your username" 
+                            required 
+                            class="form-control"
+                            autofocus
+                        >
+                    </div>
+
+                    <div class="form-group">
+                        <label for="password">Password</label>
+                        <input 
+                            type="password" 
+                            id="password"
+                            name="password" 
+                            placeholder="Enter your password" 
+                            required 
+                            class="form-control"
+                        >
+                    </div>
 
                     <div class="btn-group">
-                        <a href="member_login.php" style="flex: 1; text-decoration: none;">
-                            <button type="button" class="btn btn-primary" style="width: 100%;">Member</button>
-                        </a>
-                        <a href="trainer_login.php" style="flex: 1; text-decoration: none;">
-                            <button type="button" class="btn btn-primary" style="width: 100%;">Trainer</button>
-                        </a>
+                        <button type="submit" class="btn btn-primary">Login</button>
                     </div>
-            
                 </form>
             </div>
         </div>

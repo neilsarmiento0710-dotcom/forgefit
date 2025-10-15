@@ -58,18 +58,29 @@ $total_bookings = $total_bookings_stmt->get_result()->fetch_assoc()['total'];
 $upcoming_sessions_sql = "SELECT COUNT(*) as total FROM bookings 
                           WHERE trainer_id = ? 
                           AND booking_date >= CURDATE() 
-                          AND status = 'booked'";
+                          AND status = 'confirmed'";
 $upcoming_stmt = $conn->prepare($upcoming_sessions_sql);
 $upcoming_stmt->bind_param("i", $trainer_id);
 $upcoming_stmt->execute();
 $upcoming_sessions = $upcoming_stmt->get_result()->fetch_assoc()['total'];
+
+// Pending sessions
+$pending_sessions_sql = "SELECT COUNT(*) as total FROM bookings 
+                          WHERE trainer_id = ? 
+                          AND booking_date >= CURDATE() 
+                          AND status IN ('pending', 'reschedule_requested')";
+$pending_stmt = $conn->prepare($pending_sessions_sql);
+$pending_stmt->bind_param("i", $trainer_id);
+$pending_stmt->execute();
+$pending_sessions = $pending_stmt->get_result()->fetch_assoc()['total'];
 
 // Fetch recent client bookings with user details
 $bookings_sql = "SELECT b.*, u.username, u.email, u.phone 
                  FROM bookings b 
                  JOIN users u ON b.user_id = u.id 
                  WHERE b.trainer_id = ? 
-                 ORDER BY b.booking_date DESC, b.booking_time DESC 
+                 AND b.booking_date = CURDATE()
+                 ORDER BY b.booking_time ASC 
                  LIMIT 10";
 $bookings_stmt = $conn->prepare($bookings_sql);
 $bookings_stmt->bind_param("i", $trainer_id);
@@ -103,7 +114,6 @@ $bookings_result = $bookings_stmt->get_result();
             <ul class="nav-links">
                 <li><a href="dashboard.php" class="active">Dashboard</a></li>
                 <li><a href="clients.php">My Clients</a></li>
-                <li><a href="schedule.php">Schedule</a></li>
                 <li><a href="profile.php">Profile</a></li>
                 <li><a href="../../logout.php" class="cta-btn">Logout</a></li>
             </ul>
@@ -131,11 +141,6 @@ $bookings_result = $bookings_stmt->get_result();
         <!-- Dashboard Header -->
         <div class="dashboard-hero">
             <h1 class="dashboard-title">Welcome Back, <?php echo htmlspecialchars($trainer_info['name']); ?>!</h1>
-            <div class="breadcrumb">
-                <a href="#">Trainer Portal</a>
-                <span class="breadcrumb-separator">/</span>
-                <span>Dashboard</span>
-            </div>
             <p style="color: #90e0ef; margin-top: 10px; font-size: 1rem;">
                 Specialty: <?php echo htmlspecialchars($trainer_info['specialty']); ?>
             </p>
@@ -170,8 +175,20 @@ $bookings_result = $bookings_stmt->get_result();
                     <div class="progress-bar-fill" style="width: <?php echo min(($total_bookings / 100) * 100, 100); ?>%; background: linear-gradient(135deg, #06b6d4, #0891b2);"></div>
                 </div>
             </div>
-
-            <!-- Card 3: Upcoming Sessions -->
+        </div>
+        <div class="earnings-grid">
+            <div class="earnings-card">
+                <div class="earnings-header">🗓️ PENDING SESSIONS</div>
+                <div class="earnings-content">
+                    <div class="earnings-amount-container">
+                        <span class="earnings-amount"><?php echo $pending_sessions; ?></span>
+                    </div>
+                    <div class="earnings-percentage" style="background: linear-gradient(135deg, #10b981, #059669);">Scheduled</div>
+                </div>
+                <div class="progress-bar">
+                    <div class="progress-bar-fill" style="width: <?php echo min(($pending_sessions / 20) * 100, 100); ?>%; background: linear-gradient(135deg, #10b981, #059669);"></div>
+                </div>
+            </div>
             <div class="earnings-card">
                 <div class="earnings-header">🗓️ UPCOMING SESSIONS</div>
                 <div class="earnings-content">
@@ -184,11 +201,13 @@ $bookings_result = $bookings_stmt->get_result();
                     <div class="progress-bar-fill" style="width: <?php echo min(($upcoming_sessions / 20) * 100, 100); ?>%; background: linear-gradient(135deg, #10b981, #059669);"></div>
                 </div>
             </div>
+
         </div>
+
 
         <!-- Client Bookings List -->
         <div class="activities-card">
-            <div class="activities-header">🎯 CLIENT BOOKINGS</div>
+            <div class="activities-header">🎯 TODAY'S BOOKINGS</div>
             <div class="activity-list">
                 <?php if ($bookings_result->num_rows > 0): ?>
                     <?php while ($booking = $bookings_result->fetch_assoc()): ?>
@@ -219,7 +238,7 @@ $bookings_result = $bookings_stmt->get_result();
                     <?php endwhile; ?>
                 <?php else: ?>
                     <p style="text-align: center; color: #64748b; padding: 20px;">
-                        No client bookings yet. Start building your client base! 💪
+                        No client bookings for today yet!. Start building your client base! 💪
                     </p>
                 <?php endif; ?>
             </div>
@@ -292,8 +311,6 @@ $bookings_result = $bookings_stmt->get_result();
     </footer>
 
     <script src="../assets/js/plugins/feather.min.js"></script>
-    <script src="../assets/js/icon/custom-icon.js"></script>
-    
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             const mobileMenu = document.querySelector('.mobile-menu');

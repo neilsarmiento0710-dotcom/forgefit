@@ -25,8 +25,22 @@ if (!isset($_SESSION['user']) || !isset($_SESSION['user']['id'])) {
 }
 
 // Get user information
+// Get user information
 $user_id = $_SESSION['user']['id'];
 $user_name = $_SESSION['user']['username'];
+
+// Check if user has an active membership
+// Check if user has an active membership
+$membership_check_sql = "SELECT * FROM memberships 
+                         WHERE user_id = ? 
+                         AND status = 'active' 
+                         AND end_date >= CURDATE() 
+                         ORDER BY end_date DESC LIMIT 1";
+$membership_check_stmt = $conn->prepare($membership_check_sql);
+$membership_check_stmt->bind_param("i", $user_id);
+$membership_check_stmt->execute();
+$membership_check_result = $membership_check_stmt->get_result();
+$has_active_membership = ($membership_check_result->num_rows > 0);
 
 // Handle cancel booking request
 if (isset($_POST['cancel_booking'])) {
@@ -42,7 +56,8 @@ if (isset($_POST['cancel_booking'])) {
     if ($check_result->num_rows > 0) {
         $booking = $check_result->fetch_assoc();
         
-    if ($booking['status'] === 'pending' || $booking['status'] === 'booked') { 
+        // Members can cancel before confirmation
+        if ($booking['status'] !== 'confirmed') {
             $cancel_sql = "UPDATE bookings SET status = 'cancelled' WHERE id = ? AND user_id = ?";
             $cancel_stmt = $conn->prepare($cancel_sql);
             $cancel_stmt->bind_param("ii", $booking_id, $user_id);
@@ -64,20 +79,14 @@ if (isset($_POST['cancel_booking'])) {
 // Handle reschedule request
 if (isset($_POST['request_reschedule'])) {
     $booking_id = intval($_POST['booking_id']);
-    $new_date = $_POST['new_date'];
-    $new_time = $_POST['new_time'];
     
-    // Update booking with new date/time and set status to 'reschedule_requested'
-    $reschedule_sql = "UPDATE bookings 
-                      SET status = 'reschedule_requested', 
-                          requested_date = ?, 
-                          requested_time = ?
-                      WHERE id = ? AND user_id = ?";
+    // Update status to 'reschedule_requested'
+    $reschedule_sql = "UPDATE bookings SET status = 'reschedule_requested' WHERE id = ? AND user_id = ?";
     $reschedule_stmt = $conn->prepare($reschedule_sql);
-    $reschedule_stmt->bind_param("ssii", $new_date, $new_time, $booking_id, $user_id);
+    $reschedule_stmt->bind_param("ii", $booking_id, $user_id);
     
     if ($reschedule_stmt->execute()) {
-        $_SESSION['success_message'] = "Reschedule request sent! A trainer will review your request.";
+        $_SESSION['success_message'] = "Reschedule request sent! A trainer will contact you soon.";
     } else {
         $_SESSION['error_message'] = "Failed to request reschedule.";
     }
@@ -244,9 +253,6 @@ if (isset($_POST['submit'])) {
             display: flex;
             flex-direction: column;
             gap: 20px;
-            max-height: 500px;
-            overflow-y: auto;
-            padding-right: 10px;
         }
 
         .activity-item {
@@ -470,101 +476,38 @@ if (isset($_POST['submit'])) {
         </div>
     <?php endif; ?>
 
+    <!-- Trainers Hero Section -->
     <div class="trainers-hero">
-            <h1>YOUR BOOKINGS</h1>
+            <h1>TRAINERS</h1>
+            <p>Choose the perfect trainer for you!</p>
     </div>
-    
-    <div class="activities-card">
-        <div class="activity-list">
-            <?php if ($bookings_result->num_rows > 0): ?>
-                <?php while ($booking = $bookings_result->fetch_assoc()): ?>
-                    <div class="activity-item">
-                        <div class="activity-icon">
-                            <i class="ph-duotone ph-calendar-check"></i>
-                        </div>
-                        <div class="activity-content">  
-                            <div class="activity-title">Session with <?php echo htmlspecialchars($booking['trainer_name']); ?></div>
-                            <div class="activity-description">
-                                <?php echo date('F j, Y', strtotime($booking['booking_date'])); ?> at 
-                                <?php echo date('g:i A', strtotime($booking['booking_time'])); ?>
-                                - <?php echo htmlspecialchars($booking['specialty']); ?>
-                            </div>
-                            
-                            <!-- Action Buttons -->
-                            <div class="booking-actions">
-                                <?php 
-                                $can_cancel = ($booking['status'] === 'pending' || $booking['status'] === 'booked');
-                                $can_reschedule = ($booking['status'] !== 'cancelled' && $booking['status'] !== 'reschedule_requested' && $booking['status'] !== 'completed');
-                                ?>
-                                
-                                <!-- Cancel Button -->
-                                <form method="POST" style="display: inline;" onsubmit="return confirm('Are you sure you want to cancel this booking?');">
-                                    <input type="hidden" name="booking_id" value="<?php echo $booking['id']; ?>">
-                                    <button type="submit" name="cancel_booking" class="action-btn btn-cancel" 
-                                            <?php echo !$can_cancel ? 'disabled' : ''; ?>>
-                                        ✕ Cancel
-                                    </button>
-                                </form>
-                                
-                                <!-- Reschedule Button -->
-                                <form method="POST" style="display: inline;">
-                                    <input type="hidden" name="booking_id" value="<?php echo $booking['id']; ?>">
-                                    <!-- Reschedule Button -->
-                                    <button type="button" class="action-btn btn-reschedule"
-                                            <?php echo !$can_reschedule ? 'disabled' : ''; ?>
-                                            onclick="openRescheduleModal(<?php echo $booking['id']; ?>, '<?php echo $booking['booking_date']; ?>', '<?php echo $booking['booking_time']; ?>')">
-                                        🔄 Request Reschedule
-                                    </button>
-                                </form>
-                            </div>
-                        </div>
-                        <div class="activity-meta">
-                            <span class="activity-timestamp">
-                                <span class="status-dot <?php echo $booking['status']; ?>"></span> 
-                                <?php echo ucfirst(str_replace('_', ' ', $booking['status'])); ?>
-                            </span>
-                        </div>
+
+    <!-- Trainers List Section -->
+    <section>
+        <div class="trainer-list">
+            <?php if ($result->num_rows > 0): ?>
+                <?php while ($trainer = $result->fetch_assoc()): ?>
+                    <div class="trainer-card">
+                        <div class="feature-icon">💪</div>
+                        <h3><?php echo htmlspecialchars($trainer['name']); ?></h3>
+                        <p><strong>Specialty:</strong> <?php echo htmlspecialchars($trainer['specialty']); ?></p>
+                        <?php if ($has_active_membership): ?>
+                            <a href="book.php?trainer_id=<?php echo $trainer['id']; ?>" class="cta-btn">Book Session</a>
+                        <?php else: ?>
+                            <a href="membership.php" class="cta-btn" style="background: linear-gradient(135deg, #94a3b8, #64748b);">Get Membership First</a>
+                        <?php endif; ?>
                     </div>
                 <?php endwhile; ?>
             <?php else: ?>
-                <p style="text-align: center; color: #64748b; padding: 20px;">No bookings yet. <a href="classes.php" style="color: #ff6b6b;">Book your first session!</a></p>
+                <div class="no-trainers">
+                    <p>No trainers available at the moment. Please check back later!</p>
+                </div>
             <?php endif; ?>
         </div>
-    </div>
-    <!-- Reschedule Modal -->
-    <div id="rescheduleModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 9999; align-items: center; justify-content: center;">
-        <div style="background: white; padding: 30px; border-radius: 15px; max-width: 500px; width: 90%;">
-            <h2 style="color: #023e8a; margin-bottom: 20px;">Request Reschedule</h2>
-            <form method="POST">
-                <input type="hidden" name="booking_id" id="modal_booking_id">
-                
-                <div style="margin-bottom: 20px;">
-                    <label style="display: block; margin-bottom: 8px; color: #0077b6; font-weight: 600;">New Date:</label>
-                    <input type="date" name="new_date" id="new_date" required 
-                        style="width: 100%; padding: 12px; border: 2px solid #e0f2fe; border-radius: 8px; font-family: 'Montserrat', sans-serif;"
-                        min="<?php echo date('Y-m-d'); ?>">
-                </div>
-                
-                <div style="margin-bottom: 20px;">
-                    <label style="display: block; margin-bottom: 8px; color: #0077b6; font-weight: 600;">New Time:</label>
-                    <input type="time" name="new_time" id="new_time" required 
-                        style="width: 100%; padding: 12px; border: 2px solid #e0f2fe; border-radius: 8px; font-family: 'Montserrat', sans-serif;">
-                </div>
-                
-                <div style="display: flex; gap: 10px;">
-                    <button type="submit" name="request_reschedule" class="action-btn btn-reschedule" style="flex: 1;">
-                        Submit Request
-                    </button>
-                    <button type="button" onclick="closeRescheduleModal()" class="action-btn" style="flex: 1; background: #64748b;">
-                        Cancel
-                    </button>
-                </div>
-            </form>
-        </div>
-    </div>
-
+    </section>
     </main>
 
+    <!-- Footer -->
     <footer>
         <div class="footer-bottom">
             <p>&copy; 2025 ForgeFit Gym. All rights reserved.</p>
@@ -603,16 +546,6 @@ if (isset($_POST['submit'])) {
                 header.style.background = 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)';
             }
         });
-        function openRescheduleModal(bookingId, currentDate, currentTime) {
-            document.getElementById('modal_booking_id').value = bookingId;
-            document.getElementById('new_date').value = currentDate;
-            document.getElementById('new_time').value = currentTime;
-            document.getElementById('rescheduleModal').style.display = 'flex';
-        }
-
-        function closeRescheduleModal() {
-            document.getElementById('rescheduleModal').style.display = 'none';
-        }
     </script>
 </body>
 </html>

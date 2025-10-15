@@ -27,16 +27,46 @@ $user_id = $_SESSION['user']['id'];
 $user_name = $_SESSION['user']['username'];
 
 // Fetch user's bookings
+$today = date('Y-m-d');
 $bookings_sql = "SELECT b.*, t.name as trainer_name, t.specialty 
                  FROM bookings b 
                  JOIN trainers t ON b.trainer_id = t.id 
-                 WHERE b.user_id = ? 
-                 ORDER BY b.booking_date DESC, b.booking_time DESC 
-                 LIMIT 5";
+                 WHERE b.user_id = ? AND b.booking_date = ?
+                 ORDER BY b.booking_time ASC";
 $bookings_stmt = $conn->prepare($bookings_sql);
-$bookings_stmt->bind_param("i", $user_id);
+$bookings_stmt->bind_param("is", $user_id, $today);
 $bookings_stmt->execute();
 $bookings_result = $bookings_stmt->get_result();
+
+// === Fetch total classes taken by the member ===
+$total_classes_sql = "SELECT COUNT(*) AS total_classes FROM bookings WHERE user_id = ? AND status = 'completed'";
+$total_stmt = $conn->prepare($total_classes_sql);
+$total_stmt->bind_param("i", $user_id);
+$total_stmt->execute();
+$total_result = $total_stmt->get_result();
+$total_classes = 0;
+if ($total_result && $total_result->num_rows > 0) {
+    $row = $total_result->fetch_assoc();
+    $total_classes = $row['total_classes'];
+}
+
+// === Fetch membership expiration ===
+$membership_sql = "SELECT end_date FROM memberships WHERE user_id = ? AND status = 'active' ORDER BY end_date DESC LIMIT 1";
+$membership_stmt = $conn->prepare($membership_sql);
+$membership_stmt->bind_param("i", $user_id);
+$membership_stmt->execute();
+$membership_result = $membership_stmt->get_result();
+
+$days_left = 0;
+if ($membership_result && $membership_result->num_rows > 0) {
+    $membership = $membership_result->fetch_assoc();
+    $end_date = $membership['end_date'];
+    $today = new DateTime();
+    $end = new DateTime($end_date);
+    $interval = $today->diff($end);
+    $days_left = max(0, $interval->days); // Prevent negative days
+}
+
 
 if (isset($_POST['submit'])) {
 } else {
@@ -72,6 +102,7 @@ if (isset($_POST['submit'])) {
             <div class="logo">ForgeFit</div>
             <ul class="nav-links">
                 <li><a href="dashboard.php">Dashboard</a></li>
+                <li><a href="trainers.php">Trainers</a></li>
                 <li><a href="classes.php">Bookings</a></li>
                 <li><a href="membership.php">Membership</a></li>
                 <li><a href="profile.php">Profile</a></li>
@@ -98,48 +129,41 @@ if (isset($_POST['submit'])) {
             </div>
         <?php endif; ?>
         <!-- Dashboard Header -->
-        <div class="dashboard-hero">
+        <div class="dashboard-hero" style="text-align: center;">
             <h1 class="dashboard-title">Welcome Back, Member!</h1>
-            <div class="breadcrumb">
-                <a href="#">Home</a>
-                <span class="breadcrumb-separator">/</span>
-                <span>Dashboard</span>
-            </div>
         </div>
 
         <!-- Metrics Grid -->
         <div class="earnings-grid">
-            <!-- Card 1: Consistency -->
             <div class="earnings-card">
-                <div class="earnings-header">💪 CONSISTENCY</div>
+                <div class="earnings-header">🏋️ TOTAL CLASSES</div>
                 <div class="earnings-content">
                     <div class="earnings-amount-container">
-                        <span class="earnings-amount">15</span>
+                        <span class="earnings-amount"><?php echo number_format($total_classes); ?></span>
                     </div>
-                    <div class="earnings-percentage">Days</div>
+                    <div class="earnings-percentage">Completed Sessions</div>
                 </div>
                 <div class="progress-bar">
-                    <div class="progress-bar-fill" style="width: 60%;"></div>
+                    <div class="progress-bar-fill" style="width: <?php echo min($total_classes * 5, 100); ?>%; background: linear-gradient(135deg, #10b981, #059669);"></div>
                 </div>
             </div>
             
             <!-- Card 2: Membership Expiration -->
             <div class="earnings-card">
-                <div class="earnings-header">📅 MEMBERSHIP EXPIRATION</div>
-                <div class="earnings-content">
-                    <div class="earnings-amount-container">
-                        <span class="earnings-amount">30</span>
-                    </div>
-                    <div class="earnings-percentage text-cyan-500">Days Left</div>
+            <div class="earnings-header">📅 MEMBERSHIP EXPIRATION</div>
+            <div class="earnings-content">
+                <div class="earnings-amount-container">
+                    <span class="earnings-amount"><?php echo $days_left; ?></span>
                 </div>
-                <div class="progress-bar">
-                    <div class="progress-bar-fill" style="width: 56%; background: linear-gradient(135deg, #06b6d4, #0891b2);"></div>
-                </div>
+                <div class="earnings-percentage text-cyan-500">Days Left</div>
+            </div>
+            <div class="progress-bar">
+                <div class="progress-bar-fill" style="width: <?php echo min(($days_left / 30) * 100, 100); ?>%; background: linear-gradient(135deg, #06b6d4, #0891b2);"></div>
             </div>
         </div>
-
+        </div>
         <div class="activities-card">
-            <div class="activities-header">🎯 YOUR BOOKINGS</div>
+            <div class="activities-header">📅 TODAY’S BOOKINGS</div>
             <div class="activity-list">
                 <?php if ($bookings_result->num_rows > 0): ?>
                     <?php while ($booking = $bookings_result->fetch_assoc()): ?>
@@ -177,7 +201,6 @@ if (isset($_POST['submit'])) {
     </footer>
 
     <script src="../assets/js/plugins/feather.min.js"></script>
-    <script src="../assets/js/icon/custom-icon.js"></script>
     
     <script>
         document.addEventListener('DOMContentLoaded', function() {

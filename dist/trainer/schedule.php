@@ -38,7 +38,7 @@ if (isset($_POST['submit'])) {
     <meta name="description" content="ForgeFit Gym - Our Expert Trainers" />
     <meta name="keywords" content="gym, fitness, training, workout, health, trainers" />
     <meta name="author" content="Sniper 2025" />
-    <title>ForgeFit - Our Trainers</title>
+    <title>Schedule - ForgeFit</title>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;600;700;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="../assets/fonts/phosphor/duotone/style.css" />
     <link rel="stylesheet" href="../assets/fonts/tabler-icons.min.css" />

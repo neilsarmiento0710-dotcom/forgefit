@@ -142,13 +142,22 @@ if (isset($_POST['update_picture'])) {
 
 // Fetch user statistics
 $stats_sql = "SELECT 
-              (SELECT COUNT(*) FROM bookings WHERE user_id = ? AND status = 'booked') as total_bookings,
-              (SELECT COUNT(*) FROM memberships WHERE user_id = ? AND status = 'active') as active_memberships,
-              (SELECT COUNT(*) FROM payments WHERE user_id = ? AND status = 'approved') as total_payments";
+                (SELECT COUNT(*) 
+                 FROM bookings 
+                 WHERE user_id = ?) AS total_bookings,
+                (SELECT COUNT(*) 
+                 FROM memberships 
+                 WHERE user_id = ? AND status = 'active') AS active_memberships";
+
 $stats_stmt = $conn->prepare($stats_sql);
-$stats_stmt->bind_param("iii", $user_id, $user_id, $user_id);
+$stats_stmt->bind_param("ii", $user_id, $user_id);
 $stats_stmt->execute();
 $stats = $stats_stmt->get_result()->fetch_assoc();
+
+// Access the results
+$total_bookings = $stats['total_bookings'];
+$active_memberships = $stats['active_memberships'];
+
 
 // Refresh user data after any update
 $user_stmt->execute();
@@ -173,6 +182,7 @@ $user = $user_stmt->get_result()->fetch_assoc();
             <div class="logo">ForgeFit</div>
             <ul class="nav-links">
                 <li><a href="dashboard.php">Dashboard</a></li>
+                <li><a href="trainers.php">Trainers</a></li>
                 <li><a href="classes.php">Bookings</a></li>
                 <li><a href="membership.php">Membership</a></li>
                 <li><a href="profile.php" class="active">Profile</a></li>
@@ -226,10 +236,6 @@ $user = $user_stmt->get_result()->fetch_assoc();
                     <div class="stat-card">
                         <div class="number"><?php echo $stats['active_memberships']; ?></div>
                         <div class="label">Active Plans</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="number"><?php echo $stats['total_payments']; ?></div>
-                        <div class="label">Payments</div>
                     </div>
                 </div>
             </div>

@@ -93,8 +93,8 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                 <li><a href="#features">About Us</a></li>
                 <li><a href="#pricing">Pricing</a></li>
                 <li><a href="#contact">Contact</a></li>
-                <li><a href="login.php" class="cta-btn">Member Login</a></li>
-                <li><a href="trainer_login.php" class="cta-btn">Trainer Login</a></li>
+                <li><a href="login.php" class="cta-btn">Login</a></li>
+                <li><a href="register.php" class="cta-btn">Register</a></li>
             </ul>
             <div class="mobile-menu">
                 <span></span>
@@ -107,7 +107,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         <div class="login-wrapper">
             <!-- Logo -->
             <div class="login-logo">
-                <h1>ForgeFit / Trainer</h1>
+                <h1>Trainer</h1>
             </div>
 
             <!-- Login Card -->
@@ -148,16 +148,8 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
                     <div class="btn-group">
                         <button type="submit" class="btn btn-primary">Login</button>
-                        <a href="index.php" style="flex: 1; text-decoration: none;">
-                            <button type="button" class="btn btn-secondary" style="width: 100%;">Back to Home</button>
-                        </a>
                     </div>
                 </form>
-            </div>
-
-            <!-- Back Link -->
-            <div class="back-link">
-                <a href="index.php">← Return to Homepage</a>
             </div>
         </div>
     </div>

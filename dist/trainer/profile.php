@@ -150,13 +150,20 @@ if (isset($_POST['update_picture'])) {
 // exists in the 'bookings', 'memberships', and 'payments' tables. If the error persists after
 // applying the other fixes, you must verify these column names in your database schema.
 $stats_sql = "SELECT 
-                  (SELECT COUNT(*) FROM bookings WHERE trainer_id = ? AND status = 'booked') as total_bookings,
-                  (SELECT COUNT(*) FROM memberships WHERE trainer_id = ? AND status = 'active') as active_memberships,
-                  (SELECT COUNT(*) FROM payments WHERE trainer_id = ? AND status = 'approved') as total_payments";
+                  COUNT(*) as total_bookings,
+                  COUNT(DISTINCT user_id) as total_clients
+               FROM bookings 
+               WHERE trainer_id = ? 
+                 AND status = 'completed'";
 $stats_stmt = $conn->prepare($stats_sql);
-$stats_stmt->bind_param("iii", $trainer_id, $trainer_id, $trainer_id);
+$stats_stmt->bind_param("i", $trainer_id);
 $stats_stmt->execute();
 $stats = $stats_stmt->get_result()->fetch_assoc();
+
+// Access the values
+$total_bookings = $stats['total_bookings'];
+$total_clients = $stats['total_clients'];
+
 
 // Refresh trainer data in case of updates
 $trainer_stmt->execute();
@@ -183,7 +190,6 @@ $trainer = $trainer_result->fetch_assoc();
             <ul class="nav-links">
                 <li><a href="dashboard.php">Dashboard</a></li>
                 <li><a href="clients.php">My Clients</a></li>
-                <li><a href="schedule.php">Schedule</a></li>
                 <li><a href="profile.php" class="active">Profile</a></li>
                 <li><a href="../../logout.php" class="cta-btn">Logout</a></li>
             </ul>
@@ -233,12 +239,8 @@ $trainer = $trainer_result->fetch_assoc();
                         <div class="label">Total Bookings</div>
                     </div>
                     <div class="stat-card">
-                        <div class="number"><?php echo $stats['active_memberships']; ?></div>
-                        <div class="label">Active Members</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="number"><?php echo $stats['total_payments']; ?></div>
-                        <div class="label">Payments</div>
+                        <div class="number"><?php echo $stats['total_clients']; ?></div>
+                        <div class="label">Clients</div>
                     </div>
                 </div>
             </div>

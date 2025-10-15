@@ -6,7 +6,7 @@
     }
 
     html, body {
-        height: 100%;
+        height: auto;
         margin: 0;
         padding: 0;
         font-family: 'Montserrat', sans-serif;
@@ -20,7 +20,7 @@
     }
     
     main {
-        flex: 1;
+        flex: 100;
         display: flex;
         flex-direction: column;
         margin-top: 80px;
@@ -344,4 +344,26 @@
             width: 100%;
             justify-content: center;
         }
+
+                /* === Scrollable Bookings List === */
+        .activity-list.scrollable {
+            max-height: 300px; /* adjust height as needed */
+            overflow-y: auto;
+            padding-right: 10px;
+        }
+
+        /* Make scrollbar subtle and modern */
+        .activity-list.scrollable::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .activity-list.scrollable::-webkit-scrollbar-thumb {
+            background: linear-gradient(135deg, #475569, #1e293b);
+            border-radius: 4px;
+        }
+
+        .activity-list.scrollable::-webkit-scrollbar-thumb:hover {
+            background: linear-gradient(135deg, #64748b, #334155);
+        }
+
     }

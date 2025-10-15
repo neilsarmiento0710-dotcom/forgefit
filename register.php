@@ -133,7 +133,8 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                 <li><a href="#features">About Us</a></li>
                 <li><a href="#pricing">Pricing</a></li>
                 <li><a href="#contact">Contact</a></li>
-                <li><a href="login.php" class="cta-btn">Member Login</a></li>
+                <li><a href="login.php" class="cta-btn">Login</a></li>
+                <li><a href="register.php" class="cta-btn">Register</a></li>
             </ul>
             <div class="mobile-menu">
                 <span></span>
@@ -215,18 +216,6 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                             class="form-control"
                             placeholder="Re-enter password"
                             minlength="8">
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="role">Register as</label>
-                        <select 
-                            id="role" 
-                            name="role" 
-                            required
-                            class="form-control">
-                            <option value="member" <?= (($_POST['role'] ?? '') === 'member') ? 'selected' : '' ?>>Member</option>
-                            <option value="trainer" <?= (($_POST['role'] ?? '') === 'trainer') ? 'selected' : '' ?>>Trainer</option>
-                        </select>
                     </div>
                     
                     <div class="btn-group">
