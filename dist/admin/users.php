@@ -83,13 +83,44 @@ if (isset($_POST['add_user'])) {
     exit();
 }
 
-// Fetch members (from users table)
-$members_sql = "SELECT id, username, email, phone, address, status, created_at FROM users WHERE role = 'member' ORDER BY id DESC";
+// Pagination setup
+$records_per_page = 10;
+$members_page = isset($_GET['members_page']) ? max(1, intval($_GET['members_page'])) : 1;
+$trainers_page = isset($_GET['trainers_page']) ? max(1, intval($_GET['trainers_page'])) : 1;
+
+// Calculate offsets
+$members_offset = ($members_page - 1) * $records_per_page;
+$trainers_offset = ($trainers_page - 1) * $records_per_page;
+
+// Fetch members (paginated)
+$members_sql = "SELECT id, username, email, phone, address, status, created_at 
+                FROM users 
+                WHERE role = 'member' 
+                ORDER BY id DESC 
+                LIMIT $records_per_page OFFSET $members_offset";
 $members_result = $conn->query($members_sql);
 
-// Fetch trainers (from users table)
-$trainers_sql = "SELECT id, username, email, phone, specialty, status, created_at FROM users WHERE role = 'trainer' ORDER BY id DESC";
+// Get total members count
+$total_members_sql = "SELECT COUNT(*) AS total FROM users WHERE role = 'member'";
+$total_members_result = $conn->query($total_members_sql);
+$total_members = ($total_members_result->fetch_assoc())['total'];
+$total_members_pages = ceil($total_members / $records_per_page);
+
+
+// Fetch trainers (paginated)
+$trainers_sql = "SELECT id, username, email, phone, specialty, status, created_at 
+                 FROM users 
+                 WHERE role = 'trainer' 
+                 ORDER BY id DESC 
+                 LIMIT $records_per_page OFFSET $trainers_offset";
 $trainers_result = $conn->query($trainers_sql);
+
+// Get total trainers count
+$total_trainers_sql = "SELECT COUNT(*) AS total FROM users WHERE role = 'trainer'";
+$total_trainers_result = $conn->query($total_trainers_sql);
+$total_trainers = ($total_trainers_result->fetch_assoc())['total'];
+$total_trainers_pages = ceil($total_trainers / $records_per_page);
+
 ?>
 <!doctype html>
 <html lang="en">
@@ -291,6 +322,36 @@ $trainers_result = $conn->query($trainers_sql);
             background: #fee2e2;
             color: #991b1b;
         }
+
+                .pagination {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+            margin: 30px 0;
+            padding: 20px 0;
+            width: 100%;
+        }
+        .pagination a, .pagination span {
+            padding: 10px 16px;
+            background-color: #1e293b;
+            color: #e2e8f0;
+            text-decoration: none;
+            border-radius: 6px;
+            transition: all 0.3s ease;
+        }
+        .pagination a:hover {
+            background-color: #3b82f6;
+        }
+        .pagination .active {
+            background-color: #3b82f6;
+            font-weight: 600;
+        }
+        .pagination .disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
         .logo-two {
             font-size: 0.9rem;
             font-weight: 600;
@@ -406,6 +467,29 @@ $trainers_result = $conn->query($trainers_sql);
                 <?php endif; ?>
             </tbody>
         </table>
+        <?php if ($total_members_pages > 1): ?>
+        <div class="pagination">
+            <?php if ($members_page > 1): ?>
+                <a href="?members_page=<?php echo $members_page - 1; ?>">&laquo; Prev</a>
+            <?php else: ?>
+                <span class="disabled">&laquo; Prev</span>
+            <?php endif; ?>
+
+            <?php for ($i = 1; $i <= $total_members_pages; $i++): ?>
+                <?php if ($i == $members_page): ?>
+                    <span class="active"><?php echo $i; ?></span>
+                <?php else: ?>
+                    <a href="?members_page=<?php echo $i; ?>"><?php echo $i; ?></a>
+                <?php endif; ?>
+            <?php endfor; ?>
+
+            <?php if ($members_page < $total_members_pages): ?>
+                <a href="?members_page=<?php echo $members_page + 1; ?>">Next &raquo;</a>
+            <?php else: ?>
+                <span class="disabled">Next &raquo;</span>
+            <?php endif; ?>
+        </div>
+        <?php endif; ?>
     </div>
 
     <!-- Trainers Table -->
@@ -449,6 +533,30 @@ $trainers_result = $conn->query($trainers_sql);
                 <?php endif; ?>
             </tbody>
         </table>
+        <?php if ($total_trainers_pages > 1): ?>
+        <div class="pagination">
+            <?php if ($trainers_page > 1): ?>
+                <a href="?trainers_page=<?php echo $trainers_page - 1; ?>">&laquo; Prev</a>
+            <?php else: ?>
+                <span class="disabled">&laquo; Prev</span>
+            <?php endif; ?>
+
+            <?php for ($i = 1; $i <= $total_trainers_pages; $i++): ?>
+                <?php if ($i == $trainers_page): ?>
+                    <span class="active"><?php echo $i; ?></span>
+                <?php else: ?>
+                    <a href="?trainers_page=<?php echo $i; ?>"><?php echo $i; ?></a>
+                <?php endif; ?>
+            <?php endfor; ?>
+
+            <?php if ($trainers_page < $total_trainers_pages): ?>
+                <a href="?trainers_page=<?php echo $trainers_page + 1; ?>">Next &raquo;</a>
+            <?php else: ?>
+                <span class="disabled">Next &raquo;</span>
+            <?php endif; ?>
+        </div>
+        <?php endif; ?>
+
     </div>
 </main>
 

@@ -577,6 +577,12 @@ $bookings_result = $bookings_stmt->get_result();
                                 — 
                                 <strong><?php echo ucfirst(htmlspecialchars($booking['status'])); ?></strong>
                             </div>
+                            <?php if (!empty($booking['notes'])): ?>
+                                <div class="activity-description" style="font-style: italic; color: #555;">
+                                    📝 <?php echo htmlspecialchars($booking['notes']); ?>
+                                </div>
+                            <?php endif; ?>
+
                         </div>
                         <div class="activity-meta">
                             <span class="activity-timestamp">

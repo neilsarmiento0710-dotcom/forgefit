@@ -26,6 +26,16 @@ if (!isset($_SESSION['user']) || !isset($_SESSION['user']['id'])) {
 $user_id = $_SESSION['user']['id'];
 $user_name = $_SESSION['user']['username'];
 
+// Sync memberships with payment status
+$update_inactive_sql = "
+    UPDATE memberships m
+    JOIN payments p ON m.payment_id = p.id
+    SET m.status = 'inactive'
+    WHERE p.status = 'pending' AND m.status != 'inactive' AND m.user_id = ?";
+$update_stmt = $conn->prepare($update_inactive_sql);
+$update_stmt->bind_param("i", $user_id);
+$update_stmt->execute();
+
 // Fetch user's current membership
 $membership_sql = "SELECT * FROM memberships WHERE user_id = ? AND status = 'active' ORDER BY end_date DESC LIMIT 1";
 $membership_stmt = $conn->prepare($membership_sql);
@@ -111,7 +121,7 @@ $payments_stmt->bind_param("i", $user_id);
 $payments_stmt->execute();
 $payments_result = $payments_stmt->get_result();
 
-?>
+?>  
 <!DOCTYPE html>
 <html lang="en">
 <head>
