@@ -41,6 +41,19 @@ nav {
     letter-spacing: 2px;
 }
 
+.logo-two {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: #06b6d4;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin-left: 20px;
+    padding: 5px 12px;
+    background: linear-gradient(135deg, rgba(6, 182, 212, 0.1), rgba(8, 145, 178, 0.1));
+    border-radius: 6px;
+    border: 1px solid rgba(6, 182, 212, 0.3);
+}
+
 .nav-links {
     display: flex;
     list-style: none;

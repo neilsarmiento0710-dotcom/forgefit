@@ -123,12 +123,26 @@ $payments_result = $payments_stmt->get_result();
     <link rel="stylesheet" href="../assets/fonts/phosphor/duotone/style.css" />
     <link rel="stylesheet" href="../assets/css/home.css?v=4" />
     <link rel="stylesheet" href="../assets/css/membership.css" />
-
+    <style>
+        .logo-two {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: #90e0ef;
+            background: rgba(144, 224, 239, 0.1);
+            padding: 6px 16px;
+            border-radius: 20px;
+            border: 1px solid rgba(144, 224, 239, 0.3);
+            margin-left: 15px;
+        }
+    </style>
 </head>
 <body>
     <header>
         <nav>
-            <div class="logo">ForgeFit</div>
+            <div style="display: flex; align-items: center; gap: 15px;">
+                <div class="logo">ForgeFit</div>
+                <div class="logo-two">Member</div>
+            </div>
             <ul class="nav-links">
                 <li><a href="dashboard.php">Dashboard</a></li>
                 <li><a href="trainers.php">Trainers</a></li>
@@ -157,7 +171,7 @@ $payments_result = $payments_stmt->get_result();
         <?php endif; ?>
 
         <div class="membership-hero">
-            <h1>Membership Plans</h1>
+            <h1>Membership Plans & Status</h1>
             <p>Choose the perfect plan for your fitness journey</p>
         </div>
 

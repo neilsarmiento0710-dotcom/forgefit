@@ -174,12 +174,28 @@ $user = $user_stmt->get_result()->fetch_assoc();
     <link rel="stylesheet" href="../assets/fonts/phosphor/duotone/style.css" />
     <!-- FIXED: Load home.css first, then profile.css will override -->
     <link rel="stylesheet" href="../assets/css/home.css" />
-    <link rel="stylesheet" href="../assets/css/profile.css?v=2" /> />
+    <link rel="stylesheet" href="../assets/css/profile.css?v=2" />
+
+    <style>
+    .logo-two {
+        font-size: 0.9rem;
+        font-weight: 600;
+        color: #90e0ef;
+        background: rgba(144, 224, 239, 0.1);
+        padding: 6px 16px;
+        border-radius: 20px;
+        border: 1px solid rgba(144, 224, 239, 0.3);
+        margin-left: 15px;
+    }
+    </style>
 </head>
 <body class="profile-page">
     <header>
         <nav>
-            <div class="logo">ForgeFit</div>
+            <div style="display: flex; align-items: center; gap: 15px;">
+                <div class="logo">ForgeFit</div>
+                <div class="logo-two">Member</div>
+            </div>
             <ul class="nav-links">
                 <li><a href="dashboard.php">Dashboard</a></li>
                 <li><a href="trainers.php">Trainers</a></li>
@@ -205,36 +221,36 @@ $user = $user_stmt->get_result()->fetch_assoc();
         <?php endif; ?>
 
         <?php if (isset($error_message)): ?>
-            <div class="error-message">⚠ <?php echo $error_message; ?></div>
+            <div class="error-message">⚠ <?php echo htmlspecialchars($error_message); ?></div>
         <?php endif; ?>
 
         <div class="profile-header">
             <div class="profile-picture-container">
-                <?php if ($user['profile_picture']): ?>
+                <?php if (!empty($user['profile_picture'])): ?>
                     <img src="../admin/upload/profiles/<?php echo htmlspecialchars($user['profile_picture']); ?>" 
                          alt="Profile Picture" class="profile-picture">
                 <?php else: ?>
                     <div class="profile-picture-placeholder">
-                        <?php echo strtoupper(substr($user['username'], 0, 1)); ?>
+                        <?php echo strtoupper(substr($user['username'] ?? 'U', 0, 1)); ?>
                     </div>
                 <?php endif; ?>
                 <button class="change-picture-btn" onclick="openPictureModal()">📷</button>
             </div>
 
             <div class="profile-info">
-                <h2><?php echo htmlspecialchars($user['username']); ?></h2>
-                <p><?php echo htmlspecialchars($user['email']); ?></p>
+                <h2><?php echo htmlspecialchars($user['username'] ?? 'User'); ?></h2>
+                <p><?php echo htmlspecialchars($user['email'] ?? ''); ?></p>
                 <p class="member-role" style="font-weight: 600; margin-top: 5px;">
-                    <?php echo ucfirst($user['role']); ?> Member
+                    <?php echo ucfirst($user['role'] ?? 'member'); ?> Member
                 </p>
 
                 <div class="stats-grid">
                     <div class="stat-card">
-                        <div class="number"><?php echo $stats['total_bookings']; ?></div>
+                        <div class="number"><?php echo $stats['total_bookings'] ?? 0; ?></div>
                         <div class="label">Total Bookings</div>
                     </div>
                     <div class="stat-card">
-                        <div class="number"><?php echo $stats['active_memberships']; ?></div>
+                        <div class="number"><?php echo $stats['active_memberships'] ?? 0; ?></div>
                         <div class="label">Active Plans</div>
                     </div>
                 </div>
@@ -253,19 +269,19 @@ $user = $user_stmt->get_result()->fetch_assoc();
                     <div class="info-display">
                         <div class="info-item">
                             <label>Username</label>
-                            <p><?php echo htmlspecialchars($user['username']); ?></p>
+                            <p><?php echo htmlspecialchars($user['username'] ?? ''); ?></p>
                         </div>
                         <div class="info-item">
                             <label>Email</label>
-                            <p><?php echo htmlspecialchars($user['email']); ?></p>
+                            <p><?php echo htmlspecialchars($user['email'] ?? ''); ?></p>
                         </div>
                         <div class="info-item">
                             <label>Phone</label>
-                            <p><?php echo $user['phone'] ? htmlspecialchars($user['phone'] ?? '') : 'Not set'; ?></p>
+                            <p><?php echo $user['phone'] ? htmlspecialchars($user['phone']) : 'Not set'; ?></p>
                         </div>
                         <div class="info-item">
                             <label>Address</label>
-                            <p><?php echo htmlspecialchars($user['address'] ?? '') ?: 'Not set'; ?></p>
+                            <p><?php echo $user['address'] ? htmlspecialchars($user['address']) : 'Not set'; ?></p>
                         </div>
                     </div>
                 </div>
@@ -274,19 +290,19 @@ $user = $user_stmt->get_result()->fetch_assoc();
                     <div class="form-grid">
                         <div class="form-group">
                             <label>Username</label>
-                            <input type="text" name="username" value="<?php echo htmlspecialchars($user['username']); ?>" required>
+                            <input type="text" name="username" value="<?php echo htmlspecialchars($user['username'] ?? ''); ?>" required>
                         </div>
                         <div class="form-group">
                             <label>Email</label>
-                            <input type="email" name="email" value="<?php echo htmlspecialchars($user['email']); ?>" required>
+                            <input type="email" name="email" value="<?php echo htmlspecialchars($user['email'] ?? ''); ?>" required>
                         </div>
                         <div class="form-group">
                             <label>Phone</label>
-                            <input type="tel" name="phone" value="<?php echo htmlspecialchars($user['phone']); ?>">
+                            <input type="tel" name="phone" value="<?php echo htmlspecialchars($user['phone'] ?? ''); ?>">
                         </div>
                         <div class="form-group">
                             <label>Address</label>
-                            <input type="text" name="address" value="<?php echo htmlspecialchars($user['address']); ?>">
+                            <input type="text" name="address" value="<?php echo htmlspecialchars($user['address'] ?? ''); ?>">
                         </div>
                     </div>
                     <div class="form-actions">
@@ -307,29 +323,29 @@ $user = $user_stmt->get_result()->fetch_assoc();
                     <div class="info-display">
                         <div class="info-item">
                             <label>Contact Name</label>
-                            <p><?php echo $user['emergency_contact'] ? htmlspecialchars($user['emergency_contact'] ?? '') : 'Not set'; ?></p>
+                            <p><?php echo $user['emergency_contact'] ? htmlspecialchars($user['emergency_contact']) : 'Not set'; ?></p>
                         </div>
                         <div class="info-item">
                             <label>Contact Phone</label>
-                            <p><?php echo $user['emergency_phone'] ? htmlspecialchars($user['emergency_phone'] ?? '') : 'Not set'; ?></p>
+                            <p><?php echo $user['emergency_phone'] ? htmlspecialchars($user['emergency_phone']) : 'Not set'; ?></p>
                         </div>
                     </div>
                 </div>
 
                 <form method="POST" id="emergency-edit" class="hidden">
-                    <input type="hidden" name="username" value="<?php echo htmlspecialchars($user['username']); ?>">
-                    <input type="hidden" name="email" value="<?php echo htmlspecialchars($user['email']); ?>">
-                    <input type="hidden" name="phone" value="<?php echo htmlspecialchars($user['phone']); ?>">
-                    <input type="hidden" name="address" value="<?php echo htmlspecialchars($user['address']); ?>">
+                    <input type="hidden" name="username" value="<?php echo htmlspecialchars($user['username'] ?? ''); ?>">
+                    <input type="hidden" name="email" value="<?php echo htmlspecialchars($user['email'] ?? ''); ?>">
+                    <input type="hidden" name="phone" value="<?php echo htmlspecialchars($user['phone'] ?? ''); ?>">
+                    <input type="hidden" name="address" value="<?php echo htmlspecialchars($user['address'] ?? ''); ?>">
                     
                     <div class="form-grid">
                         <div class="form-group">
                             <label>Emergency Contact Name</label>
-                            <input type="text" name="emergency_contact" value="<?php echo htmlspecialchars($user['emergency_contact']); ?>">
+                            <input type="text" name="emergency_contact" value="<?php echo htmlspecialchars($user['emergency_contact'] ?? ''); ?>">
                         </div>
                         <div class="form-group">
                             <label>Emergency Contact Phone</label>
-                            <input type="tel" name="emergency_phone" value="<?php echo htmlspecialchars($user['emergency_phone']); ?>">
+                            <input type="tel" name="emergency_phone" value="<?php echo htmlspecialchars($user['emergency_phone'] ?? ''); ?>">
                         </div>
                     </div>
                     <div class="form-actions">

@@ -16,39 +16,38 @@ if (!isset($conn) || $conn === null) {
     $conn = getDBConnection();
 }
 
-// Check if trainer is logged in
+// Check if user is logged in
 if (!isset($_SESSION['user']) || !isset($_SESSION['user']['id'])) {
-    header("Location: ../../_trainerlogin.php");
+    header("Location: ../../_userlogin.php");
     exit();
 }
 
-// Get logged-in trainer ID
-$trainer_id = $_SESSION['user']['id'];
+// Get logged-in user ID
+$user_id = $_SESSION['user']['id'];
 
-// Fetch trainer profile
-$trainer_sql = "SELECT * FROM trainers WHERE id = ?";
-$trainer_stmt = $conn->prepare($trainer_sql);
-$trainer_stmt->bind_param("i", $trainer_id);
-$trainer_stmt->execute();
-$trainer_result = $trainer_stmt->get_result();
-$trainer = $trainer_result->fetch_assoc();
+// Fetch user profile
+$user_sql = "SELECT * FROM users WHERE id = ?";
+$user_stmt = $conn->prepare($user_sql);
+$user_stmt->bind_param("i", $user_id);
+$user_stmt->execute();
+$user_result = $user_stmt->get_result();
+$user = $user_result->fetch_assoc();
 
-if (!$trainer) {
-    die("Error: Trainer not found in database.");
+if (!$user) {
+    die("Error: User not found in database.");
 }
 
 // Handle profile update
 if (isset($_POST['update_profile'])) {
-    // Note: The 'name' from the form corresponds to the 'name' column in the DB.
-    $name = $_POST['name']; 
+    $username = $_POST['name']; // form field still named 'name'
     $email = $_POST['email'];
     $phone = $_POST['phone'];
     $address = $_POST['address'];
     $emergency_contact = $_POST['emergency_contact'];
     $emergency_phone = $_POST['emergency_phone'];
 
-    $update_sql = "UPDATE trainers SET 
-                       name = ?, 
+    $update_sql = "UPDATE users SET 
+                       username = ?, 
                        email = ?, 
                        phone = ?, 
                        address = ?, 
@@ -57,12 +56,11 @@ if (isset($_POST['update_profile'])) {
                        WHERE id = ?";
     
     $update_stmt = $conn->prepare($update_sql);
-    $update_stmt->bind_param("ssssssi", $name, $email, $phone, $address, $emergency_contact, $emergency_phone, $trainer_id);
+    $update_stmt->bind_param("ssssssi", $username, $email, $phone, $address, $emergency_contact, $emergency_phone, $user_id);
     
     if ($update_stmt->execute()) {
         $_SESSION['success_message'] = "Profile updated successfully!";
-        // Update session name if it changed
-        $_SESSION['user']['name'] = $name;
+        $_SESSION['user']['username'] = $username;
         header("Location: profile.php");
         exit();
     } else {
@@ -76,14 +74,14 @@ if (isset($_POST['change_password'])) {
     $new_password = $_POST['new_password'];
     $confirm_password = $_POST['confirm_password'];
     
-    if (password_verify($current_password, $trainer['password_hash'])) {
+    if (password_verify($current_password, $user['password_hash'])) {
         if ($new_password === $confirm_password) {
             if (strlen($new_password) >= 6) {
                 $new_password_hash = password_hash($new_password, PASSWORD_DEFAULT);
                 
-                $password_sql = "UPDATE trainers SET password_hash = ? WHERE id = ?";
+                $password_sql = "UPDATE users SET password_hash = ? WHERE id = ?";
                 $password_stmt = $conn->prepare($password_sql);
-                $password_stmt->bind_param("si", $new_password_hash, $trainer_id);
+                $password_stmt->bind_param("si", $new_password_hash, $user_id);
                 
                 if ($password_stmt->execute()) {
                     $_SESSION['success_message'] = "Password changed successfully!";
@@ -116,18 +114,18 @@ if (isset($_POST['update_picture'])) {
 
         if (in_array($file_type, $allowed_types)) {
             $file_extension = pathinfo($_FILES['profile_picture']['name'], PATHINFO_EXTENSION);
-            $new_filename = 'trainer_' . $trainer_id . '_' . time() . '.' . $file_extension;
+            $new_filename = 'user_' . $user_id . '_' . time() . '.' . $file_extension;
             $upload_path = $upload_dir . $new_filename;
 
             if (move_uploaded_file($_FILES['profile_picture']['tmp_name'], $upload_path)) {
                 // Delete old picture
-                if ($trainer['profile_picture'] && file_exists($upload_dir . $trainer['profile_picture'])) {
-                    unlink($upload_dir . $trainer['profile_picture']);
+                if ($user['profile_picture'] && file_exists($upload_dir . $user['profile_picture'])) {
+                    unlink($upload_dir . $user['profile_picture']);
                 }
 
-                $picture_sql = "UPDATE trainers SET profile_picture = ? WHERE id = ?";
+                $picture_sql = "UPDATE users SET profile_picture = ? WHERE id = ?";
                 $picture_stmt = $conn->prepare($picture_sql);
-                $picture_stmt->bind_param("si", $new_filename, $trainer_id);
+                $picture_stmt->bind_param("si", $new_filename, $user_id);
 
                 if ($picture_stmt->execute()) {
                     $_SESSION['success_message'] = "Profile picture updated successfully!";
@@ -145,30 +143,26 @@ if (isset($_POST['update_picture'])) {
     }
 }
 
-// Fetch trainer statistics.
-// FATAL ERROR SOURCE: The original error comes from this query. It assumes a 'trainer_id' column
-// exists in the 'bookings', 'memberships', and 'payments' tables. If the error persists after
-// applying the other fixes, you must verify these column names in your database schema.
+// Fetch user statistics
 $stats_sql = "SELECT 
-                  COUNT(*) as total_bookings,
-                  COUNT(DISTINCT user_id) as total_clients
-               FROM bookings 
-               WHERE trainer_id = ? 
-                 AND status = 'completed'";
+                  COUNT(*) AS total_bookings,
+                  COUNT(DISTINCT user_id) AS total_clients
+              FROM bookings
+              WHERE trainer_id = ?
+                AND status = 'completed'";
 $stats_stmt = $conn->prepare($stats_sql);
-$stats_stmt->bind_param("i", $trainer_id);
+$stats_stmt->bind_param("i", $user_id);
 $stats_stmt->execute();
 $stats = $stats_stmt->get_result()->fetch_assoc();
 
-// Access the values
 $total_bookings = $stats['total_bookings'];
 $total_clients = $stats['total_clients'];
 
 
-// Refresh trainer data in case of updates
-$trainer_stmt->execute();
-$trainer_result = $trainer_stmt->get_result();
-$trainer = $trainer_result->fetch_assoc();
+// Refresh user data
+$user_stmt->execute();
+$user_result = $user_stmt->get_result();
+$user = $user_result->fetch_assoc();
 ?>
 
 <!DOCTYPE html>
@@ -182,15 +176,32 @@ $trainer = $trainer_result->fetch_assoc();
     <link rel="stylesheet" href="../assets/fonts/phosphor/duotone/style.css" />
     <link rel="stylesheet" href="../assets/css/home.css" />
     <link rel="stylesheet" href="../assets/css/profile.css?v=2" />
+
+    <style>
+    .logo-two {
+        font-size: 0.9rem;
+        font-weight: 600;
+        color: #90e0ef;
+        background: rgba(144, 224, 239, 0.1);
+        padding: 6px 16px;
+        border-radius: 20px;
+        border: 1px solid rgba(144, 224, 239, 0.3);
+        margin-left: 15px;
+    }
+    </style>    
 </head>
 <body class="profile-page">
     <header>
         <nav>
-            <div class="logo">ForgeFit</div>
+            <div style="display: flex; align-items: center; gap: 15px;">
+                <div class="logo">ForgeFit</div>
+                <div class="logo-two">Trainer</div>
+            </div>
             <ul class="nav-links">
-                <li><a href="dashboard.php">Dashboard</a></li>
+                <li><a href="dashboard.php" class="active">Dashboard</a></li>
+                <li><a href="book.php">Book Client</a></li>
                 <li><a href="clients.php">My Clients</a></li>
-                <li><a href="profile.php" class="active">Profile</a></li>
+                <li><a href="profile.php">Profile</a></li>
                 <li><a href="../../logout.php" class="cta-btn">Logout</a></li>
             </ul>
             <div class="mobile-menu">
@@ -215,22 +226,22 @@ $trainer = $trainer_result->fetch_assoc();
 
         <div class="profile-header">
             <div class="profile-picture-container">
-                <?php if ($trainer['profile_picture']): ?>
-                    <img src="../admin/upload/profiles/<?php echo htmlspecialchars($trainer['profile_picture']); ?>" 
+                <?php if ($user['profile_picture']): ?>
+                    <img src="../admin/upload/profiles/<?php echo htmlspecialchars($user['profile_picture']); ?>" 
                          alt="Profile Picture" class="profile-picture">
                 <?php else: ?>
                     <div class="profile-picture-placeholder">
-                        <?php echo strtoupper(substr($trainer['name'], 0, 1)); ?>
+                        <?php echo strtoupper(substr($user['username'], 0, 1)); ?>
                     </div>
                 <?php endif; ?>
                 <button class="change-picture-btn" onclick="openPictureModal()">📷</button>
             </div>
 
             <div class="profile-info">
-                <h2><?php echo htmlspecialchars($trainer['name']); ?></h2>
-                <p><?php echo htmlspecialchars($trainer['email']); ?></p>
+                <h2><?php echo htmlspecialchars($user['username']); ?></h2>
+                <p><?php echo htmlspecialchars($user['email']); ?></p>
                 <p class="member-role" style="font-weight: 600; margin-top: 5px;">
-                    <?php echo isset($trainer['role']) ? ucfirst($trainer['role']) : 'Trainer'; ?>
+                    <?php echo isset($user['role']) ? ucfirst($user['role']) : 'Member'; ?>
                 </p>
 
                 <div class="stats-grid">
@@ -246,7 +257,8 @@ $trainer = $trainer_result->fetch_assoc();
             </div>
         </div>
 
-        <div class="profile-sections">
+         <div class="profile-sections">
+            <!-- PERSONAL INFO SECTION -->
             <div class="profile-section">
                 <div class="section-header">
                     <h3>👤 Personal Information</h3>
@@ -256,20 +268,20 @@ $trainer = $trainer_result->fetch_assoc();
                 <div id="personal-display">
                     <div class="info-display">
                         <div class="info-item">
-                            <label>Name</label>
-                            <p><?php echo htmlspecialchars($trainer['name']); ?></p>
+                            <label>Username</label>
+                            <p><?php echo htmlspecialchars($user['username'] ?? ''); ?></p>
                         </div>
                         <div class="info-item">
                             <label>Email</label>
-                            <p><?php echo htmlspecialchars($trainer['email']); ?></p>
+                            <p><?php echo htmlspecialchars($user['email'] ?? ''); ?></p>
                         </div>
                         <div class="info-item">
                             <label>Phone</label>
-                            <p><?php echo $trainer['phone'] ? htmlspecialchars($trainer['phone'] ?? '') : 'Not set'; ?></p>
+                            <p><?php echo $user['phone'] ? htmlspecialchars($user['phone']) : 'Not set'; ?></p>
                         </div>
                         <div class="info-item">
                             <label>Address</label>
-                            <p><?php echo htmlspecialchars($trainer['address'] ?? '') ?: 'Not set'; ?></p>
+                            <p><?php echo $user['address'] ? htmlspecialchars($user['address']) : 'Not set'; ?></p>
                         </div>
                     </div>
                 </div>
@@ -277,23 +289,21 @@ $trainer = $trainer_result->fetch_assoc();
                 <form method="POST" id="personal-edit" class="hidden">
                     <div class="form-grid">
                         <div class="form-group">
-                            <label>Name</label>
-                            <input type="text" name="name" value="<?php echo htmlspecialchars($trainer['name']); ?>" required>
+                            <label>Username</label>
+                            <input type="text" name="username" value="<?php echo htmlspecialchars($user['username'] ?? ''); ?>" required>
                         </div>
                         <div class="form-group">
                             <label>Email</label>
-                            <input type="email" name="email" value="<?php echo htmlspecialchars($trainer['email']); ?>" required>
+                            <input type="email" name="email" value="<?php echo htmlspecialchars($user['email'] ?? ''); ?>" required>
                         </div>
                         <div class="form-group">
                             <label>Phone</label>
-                            <input type="tel" name="phone" value="<?php echo htmlspecialchars($trainer['phone']); ?>">
+                            <input type="tel" name="phone" value="<?php echo htmlspecialchars($user['phone'] ?? ''); ?>">
                         </div>
                         <div class="form-group">
                             <label>Address</label>
-                            <input type="text" name="address" value="<?php echo htmlspecialchars($trainer['address']); ?>">
+                            <input type="text" name="address" value="<?php echo htmlspecialchars($user['address'] ?? ''); ?>">
                         </div>
-                        <input type="hidden" name="emergency_contact" value="<?php echo htmlspecialchars($trainer['emergency_contact']); ?>">
-                        <input type="hidden" name="emergency_phone" value="<?php echo htmlspecialchars($trainer['emergency_phone']); ?>">
                     </div>
                     <div class="form-actions">
                         <button type="submit" name="update_profile" class="btn-primary">Save Changes</button>
@@ -302,6 +312,7 @@ $trainer = $trainer_result->fetch_assoc();
                 </form>
             </div>
 
+            <!-- EMERGENCY CONTACT -->
             <div class="profile-section">
                 <div class="section-header">
                     <h3>🚨 Emergency Contact</h3>
@@ -312,29 +323,29 @@ $trainer = $trainer_result->fetch_assoc();
                     <div class="info-display">
                         <div class="info-item">
                             <label>Contact Name</label>
-                            <p><?php echo $trainer['emergency_contact'] ? htmlspecialchars($trainer['emergency_contact'] ?? '') : 'Not set'; ?></p>
+                            <p><?php echo $user['emergency_contact'] ? htmlspecialchars($user['emergency_contact']) : 'Not set'; ?></p>
                         </div>
                         <div class="info-item">
                             <label>Contact Phone</label>
-                            <p><?php echo $trainer['emergency_phone'] ? htmlspecialchars($trainer['emergency_phone'] ?? '') : 'Not set'; ?></p>
+                            <p><?php echo $user['emergency_phone'] ? htmlspecialchars($user['emergency_phone']) : 'Not set'; ?></p>
                         </div>
                     </div>
                 </div>
 
                 <form method="POST" id="emergency-edit" class="hidden">
-                    <input type="hidden" name="name" value="<?php echo htmlspecialchars($trainer['name']); ?>">
-                    <input type="hidden" name="email" value="<?php echo htmlspecialchars($trainer['email']); ?>">
-                    <input type="hidden" name="phone" value="<?php echo htmlspecialchars($trainer['phone']); ?>">
-                    <input type="hidden" name="address" value="<?php echo htmlspecialchars($trainer['address']); ?>">
+                    <input type="hidden" name="username" value="<?php echo htmlspecialchars($user['username'] ?? ''); ?>">
+                    <input type="hidden" name="email" value="<?php echo htmlspecialchars($user['email'] ?? ''); ?>">
+                    <input type="hidden" name="phone" value="<?php echo htmlspecialchars($user['phone'] ?? ''); ?>">
+                    <input type="hidden" name="address" value="<?php echo htmlspecialchars($user['address'] ?? ''); ?>">
                     
                     <div class="form-grid">
                         <div class="form-group">
                             <label>Emergency Contact Name</label>
-                            <input type="text" name="emergency_contact" value="<?php echo htmlspecialchars($trainer['emergency_contact']); ?>">
+                            <input type="text" name="emergency_contact" value="<?php echo htmlspecialchars($user['emergency_contact'] ?? ''); ?>">
                         </div>
                         <div class="form-group">
                             <label>Emergency Contact Phone</label>
-                            <input type="tel" name="emergency_phone" value="<?php echo htmlspecialchars($trainer['emergency_phone']); ?>">
+                            <input type="tel" name="emergency_phone" value="<?php echo htmlspecialchars($user['emergency_phone'] ?? ''); ?>">
                         </div>
                     </div>
                     <div class="form-actions">
@@ -344,6 +355,7 @@ $trainer = $trainer_result->fetch_assoc();
                 </form>
             </div>
 
+            <!-- SECURITY SETTINGS -->
             <div class="profile-section">
                 <div class="section-header">
                     <h3>🔒 Security Settings</h3>
@@ -424,14 +436,12 @@ $trainer = $trainer_result->fetch_assoc();
             document.getElementById('pictureModal').classList.remove('active');
         }
 
-        // Close modal when clicking outside
         document.getElementById('pictureModal').addEventListener('click', function(e) {
             if (e.target === this) {
                 closePictureModal();
             }
         });
 
-        // Header scroll effect
         window.addEventListener('scroll', function() {
             const header = document.querySelector('header');
             if (window.scrollY > 50) {

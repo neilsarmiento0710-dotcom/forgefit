@@ -1,49 +1,60 @@
 <?php
 session_start();
-require_once 'dist/database/db.php';
+require_once 'dist/database/db.php'; // Make sure this contains getDBConnection()
 
 $error = "";
 
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
-    $username = $_POST["username"] ?? "";
+    $login_input = $_POST["username"] ?? "";
     $password = $_POST["password"] ?? "";
 
-if (!empty($username) && !empty($password)) {
-    $conn = getDBConnection();
-    
+    if (!empty($login_input) && !empty($password)) {
+        $conn = getDBConnection();
 
-    $stmt = $conn->prepare("SELECT id, username, password_hash, role FROM users WHERE username = ?");
-    $stmt->bind_param("s", $username);
-    $stmt->execute();
-    $result = $stmt->get_result();
-    
-    if ($result->num_rows === 1) {
-        $user = $result->fetch_assoc();
-        
-        if (password_verify($password, $user['password_hash'])) {
-            unset($user['password_hash']);
-            $_SESSION["user"] = $user;
-            session_regenerate_id(true);
+        // Query users table by username or email
+        $stmt = $conn->prepare("SELECT id, username, email, password_hash, role 
+                                FROM users 
+                                WHERE username = ? OR email = ?");
+        $stmt->bind_param("ss", $login_input, $login_input);
+        $stmt->execute();
+        $result = $stmt->get_result();
 
-            if ($user["role"] === "member") {
-                header("Location: ./dist/member/dashboard.php");
-            } elseif ($user["role"] === "trainer") {  
-                header("Location: ./dist/trainer/dashboard.php");
-            } elseif ($user["role"] === "management") {
-                header("Location: ./dist/admin/dashboard.php");
-            }
-            exit;
+        if ($result->num_rows === 1) {
+            $user = $result->fetch_assoc();
+
+            // Verify password
+            if (password_verify($password, $user['password_hash'])) {
+                unset($user['password_hash']); // never store password hash in session
+                $_SESSION["user"] = $user;
+                session_regenerate_id(true);
+
+                // Redirect based on role
+                switch ($user['role']) {
+                    case 'management':
+                        header("Location: ./dist/admin/dashboard.php");
+                        break;
+                    case 'trainer':
+                        header("Location: ./dist/trainer/dashboard.php");
+                        break;
+                    case 'member':
+                        header("Location: ./dist/member/dashboard.php");
+                        break;
+                    default:
+                        $error = "Invalid user role configuration.";
+                        exit;
+                }
+                exit;
             } else {
-                $error = "Invalid username or password.";
+                $error = "Invalid username/email or password.";
             }
         } else {
-            $error = "Invalid username or password.";
+            $error = "Invalid username/email or password.";
         }
-        
+
         $stmt->close();
         $conn->close();
     } else {
-        $error = "Please enter both username and password.";
+        $error = "Please enter both username/email and password.";
     }
 }
 ?>
@@ -54,9 +65,9 @@ if (!empty($username) && !empty($password)) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
-    <meta name="description" content="Login to FitZone Gym" />
+    <meta name="description" content="Login to ForgeFit Gym" />
     <meta name="keywords" content="gym, login, fitness" />
-    <meta name="author" content="Sniper 2025" />
+    <meta name="author" content="ForgeFit 2025" />
     <title>Login - ForgeFit</title>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;600;700;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="./dist/assets/fonts/phosphor/duotone/style.css" />
@@ -68,30 +79,27 @@ if (!empty($username) && !empty($password)) {
     <link rel="stylesheet" href="./dist/assets/css/login.css" />
     <link rel="stylesheet" href="./dist/assets/css/home.css?v=4" id="main-style-link" />
 </head>
+
 <body>
-  <header>
+    <header>
         <nav>
             <div class="logo">ForgeFit</div>
             <ul class="nav-links">
-                <li><a href="index.php">Home</a></li>
+                <li><a href="#home">Home</a></li>
                 <li><a href="#features">About Us</a></li>
                 <li><a href="#pricing">Pricing</a></li>
                 <li><a href="#contact">Contact</a></li>
                 <li><a href="login.php" class="cta-btn">Login</a></li>
                 <li><a href="register.php" class="cta-btn">Register</a></li>
             </ul>
-            <div class="mobile-menu">
-                <span></span>
-                <span></span>
-                <span></span>
-            </div>
         </nav>
     </header>
+
     <div class="login-main">
         <div class="login-wrapper">
             <!-- Logo -->
             <div class="login-logo">
-                <h1>ForgeFit</h1>
+                <h1>Login</h1>
             </div>
 
             <!-- Login Card -->
@@ -105,22 +113,40 @@ if (!empty($username) && !empty($password)) {
                 <?php endif; ?>
 
                 <form method="POST">
+                    <div class="form-group">
+                        <label for="username">Username or Email</label>
+                        <input 
+                            type="text" 
+                            id="username"
+                            name="username" 
+                            placeholder="Enter your username or email" 
+                            required 
+                            class="form-control"
+                            autofocus
+                        >
+                    </div>
+
+                    <div class="form-group">
+                        <label for="password">Password</label>
+                        <input 
+                            type="password" 
+                            id="password"
+                            name="password" 
+                            placeholder="Enter your password" 
+                            required 
+                            class="form-control"
+                        >
+                    </div>
 
                     <div class="btn-group">
-                        <a href="member_login.php" style="flex: 1; text-decoration: none;">
-                            <button type="button" class="btn btn-primary" style="width: 100%;">Member</button>
-                        </a>
-                        <a href="trainer_login.php" style="flex: 1; text-decoration: none;">
-                            <button type="button" class="btn btn-primary" style="width: 100%;">Trainer</button>
-                        </a>
+                        <button type="submit" class="btn btn-primary">Login</button>
                     </div>
-            
                 </form>
             </div>
         </div>
     </div>
 
-    <!-- Required Js -->
+    <!-- JS -->
     <script src="./dist/assets/js/plugins/simplebar.min.js"></script>
     <script src="./dist/assets/js/plugins/popper.min.js"></script>
     <script src="./dist/assets/js/icon/custom-icon.js"></script>

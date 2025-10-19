@@ -8,18 +8,87 @@ if (!isset($conn)) {
     $conn = getDBConnection();
 }
 
-// Check if admin is logged in
+// Check if admin (management) is logged in
 if (!isset($_SESSION['user']) || $_SESSION['user']['role'] !== 'management') {
     header("Location: ../../member_login.php");
     exit();
 }
 
+// === DELETE USER ===
+if (isset($_POST['delete_user_id'])) {
+    $user_id = intval($_POST['delete_user_id']);
+    
+    // Delete related records first (foreign key constraints)
+    $conn->query("DELETE FROM bookings WHERE user_id = $user_id");
+    $conn->query("DELETE FROM payments WHERE user_id = $user_id");
+    $conn->query("DELETE FROM memberships WHERE user_id = $user_id");
+    
+    // Delete user
+    $delete_sql = "DELETE FROM users WHERE id = ?";
+    $stmt = $conn->prepare($delete_sql);
+    $stmt->bind_param("i", $user_id);
+    
+    if ($stmt->execute()) {
+        $_SESSION['success_message'] = "✅ User deleted successfully!";
+    } else {
+        $_SESSION['error_message'] = "❌ Failed to delete user.";
+    }
+    header("Location: users.php");
+    exit();
+}
+
+// === UPDATE USER ===
+if (isset($_POST['update_user'])) {
+    $user_id = intval($_POST['user_id']);
+    $username = $_POST['username'];
+    $email = $_POST['email'];
+    $phone = $_POST['phone'];
+    $address = $_POST['address'];
+    $specialty = $_POST['specialty'] ?? null;
+    $status = $_POST['status'];
+    
+    $update_sql = "UPDATE users SET username = ?, email = ?, phone = ?, address = ?, specialty = ?, status = ? WHERE id = ?";
+    $stmt = $conn->prepare($update_sql);
+    $stmt->bind_param("ssssssi", $username, $email, $phone, $address, $specialty, $status, $user_id);
+    
+    if ($stmt->execute()) {
+        $_SESSION['success_message'] = "✅ User updated successfully!";
+    } else {
+        $_SESSION['error_message'] = "❌ Failed to update user.";
+    }
+    header("Location: users.php");
+    exit();
+}
+
+// === ADD NEW USER ===
+if (isset($_POST['add_user'])) {
+    $username = $_POST['username'];
+    $email = $_POST['email'];
+    $password = password_hash($_POST['password'], PASSWORD_DEFAULT);
+    $phone = $_POST['phone'];
+    $address = $_POST['address'];
+    $role = $_POST['role'];
+    $specialty = $_POST['specialty'] ?? null;
+    
+    $insert_sql = "INSERT INTO users (username, email, password_hash, phone, address, role, specialty, status) VALUES (?, ?, ?, ?, ?, ?, ?, 'active')";
+    $stmt = $conn->prepare($insert_sql);
+    $stmt->bind_param("sssssss", $username, $email, $password, $phone, $address, $role, $specialty);
+    
+    if ($stmt->execute()) {
+        $_SESSION['success_message'] = "✅ New user added successfully!";
+    } else {
+        $_SESSION['error_message'] = "❌ Failed to add user. Email might already exist.";
+    }
+    header("Location: users.php");
+    exit();
+}
+
 // Fetch members (from users table)
-$members_sql = "SELECT id, username, email, phone, 'member' AS role FROM users ORDER BY id DESC";
+$members_sql = "SELECT id, username, email, phone, address, status, created_at FROM users WHERE role = 'member' ORDER BY id DESC";
 $members_result = $conn->query($members_sql);
 
-// Fetch trainers (from trainers table)
-$trainers_sql = "SELECT id, name AS name, email, phone, specialty, 'trainer' AS role FROM trainers ORDER BY id DESC";
+// Fetch trainers (from users table)
+$trainers_sql = "SELECT id, username, email, phone, specialty, status, created_at FROM users WHERE role = 'trainer' ORDER BY id DESC";
 $trainers_result = $conn->query($trainers_sql);
 ?>
 <!doctype html>
@@ -56,34 +125,198 @@ $trainers_result = $conn->query($trainers_sql);
         }
         .tabs { display: flex; gap: 10px; margin: 20px 0; }
         .tab {
-            padding: 8px 16px; border-radius: 8px;
-            background: #f1f5f9; color: #334155; cursor: pointer;
-            font-weight: 600; transition: 0.3s;
+            padding: 8px 16px;
+            border-radius: 8px;
+            background: #0f172a;
+            color: #ffffff;
+            cursor: pointer;
+            font-weight: 600;
+            transition: 0.3s;
+            border: 1px solid #0f172a;
         }
-        .tab.active { background: #0f172a; color: #fff; }
-        table {
-            width: 100%; border-collapse: collapse; background: #fff;
-            border-radius: 12px; overflow: hidden;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        .tab.active {
+            background: #ffffff;
+            color: #0f172a;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
         }
-        th, td { padding: 14px 16px; border-bottom: 1px solid #e5e7eb; text-align: left; font-size: 0.95rem; }
-        th { background: #f1f5f9; font-weight: 600; color: #1e293b; }
         tr:hover { background: #1e293b; }
-        .badge { padding: 5px 10px; border-radius: 6px; font-size: 0.85rem; font-weight: 600; }
-        .badge.member { background: #dbeafe; color: #1e40af; }
-        .badge.trainer { background: #dcfce7; color: #166534; }
+        
+        .action-btn {
+            padding: 6px 12px;
+            margin: 0 4px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.85rem;
+            transition: 0.3s;
+        }
+        .edit-btn {
+            background: linear-gradient(135deg, #3b82f6, #2563eb);
+            color: white;
+        }
+        .edit-btn:hover {
+            background: linear-gradient(135deg, #2563eb, #1d4ed8);
+        }
+        .delete-btn {
+            background: linear-gradient(135deg, #ef4444, #dc2626);
+            color: white;
+        }
+        .delete-btn:hover {
+            background: linear-gradient(135deg, #dc2626, #b91c1c);
+        }
+        .add-user-btn {
+            background: linear-gradient(135deg, #10b981, #059669);
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 700;
+            margin: 20px 0;
+        }
+        .add-user-btn:hover {
+            background: linear-gradient(135deg, #059669, #047857);
+        }
+        
+        /* Modal Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.8);
+            animation: fadeIn 0.3s ease;
+        }
+        .modal.active {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .modal-content {
+            background: #1e293b;
+            padding: 30px;
+            border-radius: 12px;
+            max-width: 500px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+            animation: slideIn 0.3s ease;
+            color: #e2e8f0;
+        }
+        .modal-close {
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            color: #94a3b8;
+            cursor: pointer;
+        }
+        .modal-close:hover {
+            color: #e2e8f0;
+        }
+        .form-group {
+            margin: 15px 0;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: #cbd5e1;
+        }
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #334155;
+            border-radius: 8px;
+            background: #0f172a;
+            color: #e2e8f0;
+            font-family: 'Montserrat', sans-serif;
+        }
+        .form-group textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+        .submit-btn {
+            background: linear-gradient(135deg, #10b981, #059669);
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 700;
+            width: 100%;
+            margin-top: 10px;
+        }
+        .submit-btn:hover {
+            background: linear-gradient(135deg, #059669, #047857);
+        }
+        .message-box {
+            margin: 15px 0;
+            padding: 12px 16px;
+            border-radius: 10px;
+            font-weight: 600;
+        }
+        .success {
+            background: #dcfce7;
+            color: #166534;
+        }
+        .error {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        @keyframes slideIn {
+            from { transform: translateY(-50px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        .status-badge {
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-weight: 600;
+            font-size: 0.8rem;
+        }
+        .status-active {
+            background: #dcfce7;
+            color: #166534;
+        }
+        .status-inactive {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+        .logo-two {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: #90e0ef;
+            background: rgba(144, 224, 239, 0.1);
+            padding: 6px 16px;
+            border-radius: 20px;
+            border: 1px solid rgba(144, 224, 239, 0.3);
+            margin-left: 15px;
+        }
     </style>
 </head>
 <body>
 <header>
     <nav>
-        <div class="logo">ForgeFit</div>
+         <div style="display: flex; align-items: center; gap: 15px;">
+            <div class="logo">ForgeFit</div>
+            <div class="logo-two">Admin</div>
+        </div>
         <ul class="nav-links">
-            <li><a href="dashboard.php">Dashboard</a></li>
-            <li><a href="bookings.php">Bookings</a></li>
-            <li><a href="users.php" class="active">Users</a></li>
-            <li><a href="payments.php">Payments</a></li>
-            <li><a href="../../logout.php" class="cta-btn">Logout</a></li>
+                <li><a href="dashboard.php">Dashboard</a></li>
+                <li><a href="bookings.php">Bookings</a></li>
+                <li><a href="users.php">Users</a></li>
+                <li><a href="payments.php">Payments</a></li>
+                <li><a href="member_rates.php">Membership Rates</a></li>
+                <li><a href="../../logout.php" class="cta-btn">Logout</a></li>
         </ul>
     </nav>
 </header>
@@ -91,8 +324,16 @@ $trainers_result = $conn->query($trainers_sql);
 <main>
     <div class="dashboard-hero">
         <h1 class="dashboard-title">👥 Users Management</h1>
-        <p style="color:#64748b;">View and manage all registered members and trainers.</p>
+        <p style="color:#64748b;">Full admin access to manage all users, members, and trainers.</p>
     </div>
+
+    <?php if (isset($_SESSION['success_message'])): ?>
+        <div class="message-box success"><?php echo $_SESSION['success_message']; unset($_SESSION['success_message']); ?></div>
+    <?php elseif (isset($_SESSION['error_message'])): ?>
+        <div class="message-box error"><?php echo $_SESSION['error_message']; unset($_SESSION['error_message']); ?></div>
+    <?php endif; ?>
+
+    <button class="add-user-btn" onclick="openAddUserModal()">➕ Add New User</button>
 
     <div class="tabs">
         <div class="tab active" data-filter="members">Members</div>
@@ -101,43 +342,67 @@ $trainers_result = $conn->query($trainers_sql);
 
     <!-- Members Table -->
     <div class="table-container" id="members-table">
-            <table class="modern-table">
+        <table class="modern-table">
             <thead>
                 <tr>
+                    <th>ID</th>
                     <th>Username</th>
-                    <th>Full Name</th>
                     <th>Email</th>
-                    <th>Contact</th>
-                    <th>Membership Status</th>
+                    <th>Phone</th>
+                    <th>Address</th>
+                    <th>Status</th>
+                    <th>Membership</th>
+                    <th>Joined</th>
+                    <th>Actions</th>
                 </tr>
             </thead>
             <tbody>
                 <?php if ($members_result && $members_result->num_rows > 0): ?>
                     <?php while ($member = $members_result->fetch_assoc()): ?>
                         <tr>
+                            <td><?php echo $member['id']; ?></td>
                             <td><?php echo htmlspecialchars($member['username']); ?></td>
-                            <td><?php echo htmlspecialchars($member['name'] ?? '—'); ?></td>
                             <td><?php echo htmlspecialchars($member['email']); ?></td>
-                            <td><?php echo htmlspecialchars($member['contact'] ?? '—'); ?></td>
+                            <td><?php echo htmlspecialchars($member['phone'] ?? '—'); ?></td>
+                            <td><?php echo htmlspecialchars($member['address'] ?? '—'); ?></td>
+                            <td>
+                                <span class="status-badge status-<?php echo $member['status']; ?>">
+                                    <?php echo ucfirst($member['status']); ?>
+                                </span>
+                            </td>
                             <td>
                                 <?php
-                                    $membership_sql = "SELECT status FROM memberships WHERE user_id = ? ORDER BY end_date DESC LIMIT 1";
+                                    $membership_sql = "SELECT status, end_date FROM memberships WHERE user_id = ? ORDER BY end_date DESC LIMIT 1";
                                     $stmt = $conn->prepare($membership_sql);
                                     $stmt->bind_param("i", $member['id']);
                                     $stmt->execute();
                                     $membership_result = $stmt->get_result();
                                     if ($membership_result->num_rows > 0) {
                                         $membership = $membership_result->fetch_assoc();
-                                        echo ucfirst($membership['status']);
+                                        $status = $membership['status'];
+                                        $end_date = $membership['end_date'];
+                                        
+                                        // Check if membership is expired
+                                        if ($status === 'active' && strtotime($end_date) < time()) {
+                                            echo '<span style="color:#f59e0b;">Expired</span>';
+                                        } else {
+                                            $color = ($status === 'active') ? '#16a34a' : '#f59e0b';
+                                            echo '<span style="color:' . $color . ';">' . ucfirst($status) . '</span>';
+                                        }
                                     } else {
-                                        echo "No membership";
+                                        echo '<span style="color:#64748b;">None</span>';
                                     }
                                 ?>
+                            </td>
+                            <td><?php echo date('M d, Y', strtotime($member['created_at'])); ?></td>
+                            <td>
+                                <button class="action-btn edit-btn" onclick='openEditModal(<?php echo json_encode($member); ?>, "member")'>Edit</button>
+                                <button class="action-btn delete-btn" onclick="confirmDelete(<?php echo $member['id']; ?>, '<?php echo htmlspecialchars($member['username']); ?>')">Delete</button>
                             </td>
                         </tr>
                     <?php endwhile; ?>
                 <?php else: ?>
-                    <tr><td colspan="5" style="text-align:center;">No members found.</td></tr>
+                    <tr><td colspan="9" style="text-align:center;">No members found.</td></tr>
                 <?php endif; ?>
             </tbody>
         </table>
@@ -148,29 +413,144 @@ $trainers_result = $conn->query($trainers_sql);
         <table class="modern-table">
             <thead>
                 <tr>
-                    <th>Name</th>
+                    <th>ID</th>
+                    <th>Username</th>
                     <th>Email</th>
-                    <th>Contact</th>
+                    <th>Phone</th>
                     <th>Specialty</th>
+                    <th>Status</th>
+                    <th>Joined</th>
+                    <th>Actions</th>
                 </tr>
             </thead>
             <tbody>
                 <?php if ($trainers_result && $trainers_result->num_rows > 0): ?>
                     <?php while ($trainer = $trainers_result->fetch_assoc()): ?>
                         <tr>
-                            <td><?php echo htmlspecialchars($trainer['name']); ?></td>
+                            <td><?php echo $trainer['id']; ?></td>
+                            <td><?php echo htmlspecialchars($trainer['username']); ?></td>
                             <td><?php echo htmlspecialchars($trainer['email']); ?></td>
-                            <td><?php echo htmlspecialchars($trainer['contact'] ?? '—'); ?></td>
+                            <td><?php echo htmlspecialchars($trainer['phone'] ?? '—'); ?></td>
                             <td><?php echo htmlspecialchars($trainer['specialty'] ?? '—'); ?></td>
+                            <td>
+                                <span class="status-badge status-<?php echo $trainer['status']; ?>">
+                                    <?php echo ucfirst($trainer['status']); ?>
+                                </span>
+                            </td>
+                            <td><?php echo date('M d, Y', strtotime($trainer['created_at'])); ?></td>
+                            <td>
+                                <button class="action-btn edit-btn" onclick='openEditModal(<?php echo json_encode($trainer); ?>, "trainer")'>Edit</button>
+                                <button class="action-btn delete-btn" onclick="confirmDelete(<?php echo $trainer['id']; ?>, '<?php echo htmlspecialchars($trainer['username']); ?>')">Delete</button>
+                            </td>
                         </tr>
                     <?php endwhile; ?>
                 <?php else: ?>
-                    <tr><td colspan="4" style="text-align:center;">No trainers found.</td></tr>
+                    <tr><td colspan="8" style="text-align:center;">No trainers found.</td></tr>
                 <?php endif; ?>
             </tbody>
         </table>
     </div>
 </main>
+
+<!-- Edit User Modal -->
+<div id="editModal" class="modal">
+    <div class="modal-content">
+        <span class="modal-close" onclick="closeEditModal()">&times;</span>
+        <h2 style="margin-top:0;">✏️ Edit User</h2>
+        <form method="POST" action="">
+            <input type="hidden" name="user_id" id="edit_user_id">
+            
+            <div class="form-group">
+                <label>Username</label>
+                <input type="text" name="username" id="edit_username" required>
+            </div>
+            
+            <div class="form-group">
+                <label>Email</label>
+                <input type="email" name="email" id="edit_email" required>
+            </div>
+            
+            <div class="form-group">
+                <label>Phone</label>
+                <input type="text" name="phone" id="edit_phone">
+            </div>
+            
+            <div class="form-group" id="address_group">
+                <label>Address</label>
+                <textarea name="address" id="edit_address"></textarea>
+            </div>
+            
+            <div class="form-group" id="specialty_group" style="display:none;">
+                <label>Specialty</label>
+                <input type="text" name="specialty" id="edit_specialty">
+            </div>
+            
+            <div class="form-group">
+                <label>Status</label>
+                <select name="status" id="edit_status">
+                    <option value="active">Active</option>
+                    <option value="inactive">Inactive</option>
+                </select>
+            </div>
+            
+            <button type="submit" name="update_user" class="submit-btn">Update User</button>
+        </form>
+    </div>
+</div>
+
+<!-- Add User Modal -->
+<div id="addModal" class="modal">
+    <div class="modal-content">
+        <span class="modal-close" onclick="closeAddModal()">&times;</span>
+        <h2 style="margin-top:0;">➕ Add New User</h2>
+        <form method="POST" action="">
+            <div class="form-group">
+                <label>Role</label>
+                <select name="role" id="add_role" required onchange="toggleSpecialtyField()">
+                    <option value="member">Member</option>
+                    <option value="trainer">Trainer</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label>Username</label>
+                <input type="text" name="username" required>
+            </div>
+            
+            <div class="form-group">
+                <label>Email</label>
+                <input type="email" name="email" required>
+            </div>
+            
+            <div class="form-group">
+                <label>Password</label>
+                <input type="password" name="password" required minlength="6">
+            </div>
+            
+            <div class="form-group">
+                <label>Phone</label>
+                <input type="text" name="phone">
+            </div>
+            
+            <div class="form-group">
+                <label>Address</label>
+                <textarea name="address"></textarea>
+            </div>
+            
+            <div class="form-group" id="add_specialty_group" style="display:none;">
+                <label>Specialty</label>
+                <input type="text" name="specialty">
+            </div>
+            
+            <button type="submit" name="add_user" class="submit-btn">Add User</button>
+        </form>
+    </div>
+</div>
+
+<!-- Delete Confirmation Form -->
+<form id="deleteForm" method="POST" action="" style="display:none;">
+    <input type="hidden" name="delete_user_id" id="delete_user_id">
+</form>
 
 <footer>
     <div class="footer-bottom">
@@ -198,6 +578,73 @@ $trainers_result = $conn->query($trainers_sql);
             }
         });
     });
+
+    // Edit Modal Functions
+    function openEditModal(user, type) {
+        document.getElementById('editModal').classList.add('active');
+        document.getElementById('edit_user_id').value = user.id;
+        document.getElementById('edit_username').value = user.username;
+        document.getElementById('edit_email').value = user.email;
+        document.getElementById('edit_phone').value = user.phone || '';
+        document.getElementById('edit_status').value = user.status;
+        
+        if (type === 'trainer') {
+            document.getElementById('address_group').style.display = 'none';
+            document.getElementById('specialty_group').style.display = 'block';
+            document.getElementById('edit_specialty').value = user.specialty || '';
+            document.getElementById('edit_address').value = '';
+        } else {
+            document.getElementById('address_group').style.display = 'block';
+            document.getElementById('specialty_group').style.display = 'none';
+            document.getElementById('edit_address').value = user.address || '';
+            document.getElementById('edit_specialty').value = '';
+        }
+    }
+
+    function closeEditModal() {
+        document.getElementById('editModal').classList.remove('active');
+    }
+
+    // Add Modal Functions
+    function openAddUserModal() {
+        document.getElementById('addModal').classList.add('active');
+    }
+
+    function closeAddModal() {
+        document.getElementById('addModal').classList.remove('active');
+    }
+
+    function toggleSpecialtyField() {
+        const role = document.getElementById('add_role').value;
+        const specialtyGroup = document.getElementById('add_specialty_group');
+        
+        if (role === 'trainer') {
+            specialtyGroup.style.display = 'block';
+        } else {
+            specialtyGroup.style.display = 'none';
+        }
+    }
+
+    // Delete Confirmation
+    function confirmDelete(userId, username) {
+        if (confirm(`Are you sure you want to delete user "${username}"?\n\nThis will also delete all their bookings, payments, and memberships. This action cannot be undone!`)) {
+            document.getElementById('delete_user_id').value = userId;
+            document.getElementById('deleteForm').submit();
+        }
+    }
+
+    // Close modals when clicking outside
+    window.onclick = function(event) {
+        const editModal = document.getElementById('editModal');
+        const addModal = document.getElementById('addModal');
+        
+        if (event.target === editModal) {
+            closeEditModal();
+        }
+        if (event.target === addModal) {
+            closeAddModal();
+        }
+    }
 </script>
 </body>
 </html>

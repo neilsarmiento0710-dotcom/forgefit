@@ -32,8 +32,8 @@ if (!isset($_GET['trainer_id']) || empty($_GET['trainer_id'])) {
 
 $trainer_id = (int)$_GET['trainer_id'];
 
-// Fetch trainer details
-$trainer_sql = "SELECT * FROM trainers WHERE id = ?";
+// Fetch trainer details from users table
+$trainer_sql = "SELECT * FROM users WHERE id = ? AND role = 'trainer'";
 $stmt = $conn->prepare($trainer_sql);
 $stmt->bind_param("i", $trainer_id);
 $stmt->execute();
@@ -67,7 +67,7 @@ if (isset($_POST['submit'])) {
     
     if ($conflict_result->num_rows > 0) {
         // Trainer is already booked at this time
-        $error_message = "⚠️ Sorry! " . htmlspecialchars($trainer['name']) . " is already booked on " . 
+        $error_message = "⚠️ Sorry! " . htmlspecialchars($trainer['username']) . " is already booked on " . 
                         date('F j, Y', strtotime($booking_date)) . " at " . 
                         date('g:i A', strtotime($booking_time)) . ". Please choose a different time.";
     } else {
@@ -89,7 +89,7 @@ if (isset($_POST['submit'])) {
         
         if ($insert_stmt->execute()) {
             $booking_id = $insert_stmt->insert_id;
-            $_SESSION['success_message'] = "✅ Booking successful! Your session with " . htmlspecialchars($trainer['name']) . 
+            $_SESSION['success_message'] = "✅ Booking successful! Your session with " . htmlspecialchars($trainer['username']) . 
                                           " is scheduled for " . date('M d, Y', strtotime($booking_date)) . 
                                           " at " . date('g:i A', strtotime($booking_time)) . ".";
             header("Location: dashboard.php");
@@ -112,14 +112,31 @@ if (isset($_POST['submit'])) {
     <link rel="stylesheet" href="../assets/css/home.css?v=4" />
     <link rel="stylesheet" href="../assets/css/booking.css?v=4" />
 
+    <style>
+    .logo-two {
+        font-size: 0.9rem;
+        font-weight: 600;
+        color: #90e0ef;
+        background: rgba(144, 224, 239, 0.1);
+        padding: 6px 16px;
+        border-radius: 20px;
+        border: 1px solid rgba(144, 224, 239, 0.3);
+        margin-left: 15px;
+    }
+</style>
+
 </head>
 <body>
     <header>
         <nav>
-            <div class="logo">ForgeFit</div>
+            <div style="display: flex; align-items: center; gap: 15px;">
+                <div class="logo">ForgeFit</div>
+                <div class="logo-two">Member</div>
+            </div>
             <ul class="nav-links">
                 <li><a href="dashboard.php">Dashboard</a></li>
-                <li><a href="classes.php">Trainers</a></li>
+                <li><a href="trainers.php">Trainers</a></li>
+                <li><a href="classes.php">Bookings</a></li>
                 <li><a href="membership.php">Membership</a></li>
                 <li><a href="profile.php">Profile</a></li>
                 <li><a href="../../logout.php" class="cta-btn">Logout</a></li>
@@ -143,7 +160,7 @@ if (isset($_POST['submit'])) {
         <?php endif; ?>
 
         <div class="trainer-info">
-            <h3><?php echo htmlspecialchars($trainer['name']); ?></h3>
+            <h3><?php echo htmlspecialchars($trainer['username']); ?></h3>
             <p><strong>Specialty:</strong> <?php echo htmlspecialchars($trainer['specialty']); ?></p>
         </div>
 

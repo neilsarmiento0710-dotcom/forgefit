@@ -26,13 +26,16 @@ if (!isset($_SESSION['user']) || !isset($_SESSION['user']['id'])) {
 $user_id = $_SESSION['user']['id'];
 $user_name = $_SESSION['user']['username'];
 
-// Fetch user's bookings
 $today = date('Y-m-d');
-$bookings_sql = "SELECT b.*, t.name as trainer_name, t.specialty 
-                 FROM bookings b 
-                 JOIN trainers t ON b.trainer_id = t.id 
-                 WHERE b.user_id = ? AND b.booking_date = ?
+$bookings_sql = "SELECT b.*, 
+                        t.username AS trainer_name, 
+                        t.specialty
+                 FROM bookings b
+                 JOIN users t ON b.trainer_id = t.id
+                 WHERE b.user_id = ? 
+                   AND b.booking_date = ?
                  ORDER BY b.booking_time ASC";
+
 $bookings_stmt = $conn->prepare($bookings_sql);
 $bookings_stmt->bind_param("is", $user_id, $today);
 $bookings_stmt->execute();
@@ -94,12 +97,27 @@ if (isset($_POST['submit'])) {
     <link rel="stylesheet" href="../assets/fonts/material.css" />
     <link rel="stylesheet" href="../assets/css/home.css?v=4"/> 
     <link rel="stylesheet" href="../assets/css/member_dashboard.css" id="main-style-link"/> 
+    <style>
+    .logo-two {
+        font-size: 0.9rem;
+        font-weight: 600;
+        color: #90e0ef;
+        background: rgba(144, 224, 239, 0.1);
+        padding: 6px 16px;
+        border-radius: 20px;
+        border: 1px solid rgba(144, 224, 239, 0.3);
+        margin-left: 15px;
+    }
+    </style>
 </head>
 
 <body>
     <header>
         <nav>
-            <div class="logo">ForgeFit</div>
+             <div style="display: flex; align-items: center; gap: 15px;">
+                <div class="logo">ForgeFit</div>
+                <div class="logo-two">Member</div>
+            </div>
             <ul class="nav-links">
                 <li><a href="dashboard.php">Dashboard</a></li>
                 <li><a href="trainers.php">Trainers</a></li>

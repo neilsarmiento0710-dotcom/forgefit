@@ -30,7 +30,6 @@ if ($_SESSION['user']['role'] !== 'trainer') {
 
 // Get trainer information
 $user_id = $_SESSION['user']['id'];
-$trainer_id = $_SESSION['user']['trainer_id'];
 
 // Handle confirm booking
 if (isset($_POST['confirm_booking'])) {
@@ -38,7 +37,7 @@ if (isset($_POST['confirm_booking'])) {
     
     $confirm_sql = "UPDATE bookings SET status = 'confirmed' WHERE id = ? AND trainer_id = ?";
     $confirm_stmt = $conn->prepare($confirm_sql);
-    $confirm_stmt->bind_param("ii", $booking_id, $trainer_id);
+    $confirm_stmt->bind_param("ii", $booking_id, $user_id);
     
     if ($confirm_stmt->execute()) {
         $_SESSION['success_message'] = "Booking confirmed successfully!";
@@ -56,7 +55,7 @@ if (isset($_POST['reject_booking'])) {
     
     $reject_sql = "UPDATE bookings SET status = 'cancelled' WHERE id = ? AND trainer_id = ?";
     $reject_stmt = $conn->prepare($reject_sql);
-    $reject_stmt->bind_param("ii", $booking_id, $trainer_id);
+    $reject_stmt->bind_param("ii", $booking_id, $user_id);
     
     if ($reject_stmt->execute()) {
         $_SESSION['success_message'] = "Booking rejected.";
@@ -74,7 +73,7 @@ if (isset($_POST['mark_completed'])) {
     
     $complete_sql = "UPDATE bookings SET status = 'completed' WHERE id = ? AND trainer_id = ?";
     $complete_stmt = $conn->prepare($complete_sql);
-    $complete_stmt->bind_param("ii", $booking_id, $trainer_id);
+    $complete_stmt->bind_param("ii", $booking_id, $user_id);
     
     if ($complete_stmt->execute()) {
         $_SESSION['success_message'] = "Session marked as completed!";
@@ -92,7 +91,7 @@ if (isset($_POST['approve_reschedule'])) {
     
     $reschedule_sql = "UPDATE bookings SET status = 'pending' WHERE id = ? AND trainer_id = ?";
     $reschedule_stmt = $conn->prepare($reschedule_sql);
-    $reschedule_stmt->bind_param("ii", $booking_id, $trainer_id);
+    $reschedule_stmt->bind_param("ii", $booking_id, $user_id);
     
     if ($reschedule_stmt->execute()) {
         $_SESSION['success_message'] = "Reschedule approved! Client can now select a new time.";
@@ -105,9 +104,9 @@ if (isset($_POST['approve_reschedule'])) {
 }
 
 // Fetch trainer details
-$trainer_sql = "SELECT * FROM trainers WHERE id = ?";
+$trainer_sql = "SELECT * FROM users WHERE id = ? AND role = 'trainer'";
 $trainer_stmt = $conn->prepare($trainer_sql);
-$trainer_stmt->bind_param("i", $trainer_id);
+$trainer_stmt->bind_param("i", $user_id);
 $trainer_stmt->execute();
 $trainer_info = $trainer_stmt->get_result()->fetch_assoc();
 
@@ -115,14 +114,14 @@ $trainer_info = $trainer_stmt->get_result()->fetch_assoc();
 // Total unique clients
 $total_clients_sql = "SELECT COUNT(DISTINCT user_id) as total FROM bookings WHERE trainer_id = ?";
 $total_clients_stmt = $conn->prepare($total_clients_sql);
-$total_clients_stmt->bind_param("i", $trainer_id);
+$total_clients_stmt->bind_param("i", $user_id);
 $total_clients_stmt->execute();
 $total_clients = $total_clients_stmt->get_result()->fetch_assoc()['total'];
 
 // Total bookings
 $total_bookings_sql = "SELECT COUNT(*) as total FROM bookings WHERE trainer_id = ?";
 $total_bookings_stmt = $conn->prepare($total_bookings_sql);
-$total_bookings_stmt->bind_param("i", $trainer_id);
+$total_bookings_stmt->bind_param("i", $user_id);
 $total_bookings_stmt->execute();
 $total_bookings = $total_bookings_stmt->get_result()->fetch_assoc()['total'];
 
@@ -132,7 +131,7 @@ $upcoming_sessions_sql = "SELECT COUNT(*) as total FROM bookings
                           AND booking_date >= CURDATE() 
                           AND status IN ('booked', 'confirmed', 'pending')";
 $upcoming_stmt = $conn->prepare($upcoming_sessions_sql);
-$upcoming_stmt->bind_param("i", $trainer_id);
+$upcoming_stmt->bind_param("i", $user_id);
 $upcoming_stmt->execute();
 $upcoming_sessions = $upcoming_stmt->get_result()->fetch_assoc()['total'];
 
@@ -153,7 +152,7 @@ $bookings_sql = "SELECT b.*, u.username, u.email, u.phone
                     b.booking_time DESC 
                  LIMIT 20";
 $bookings_stmt = $conn->prepare($bookings_sql);
-$bookings_stmt->bind_param("i", $trainer_id);
+$bookings_stmt->bind_param("i", $user_id);
 $bookings_stmt->execute();
 $bookings_result = $bookings_stmt->get_result();
 ?>
@@ -492,15 +491,30 @@ $bookings_result = $bookings_stmt->get_result();
         justify-content: center;
         font-size: 1.2rem;
     }
+        .logo-two {
+        font-size: 0.9rem;
+        font-weight: 600;
+        color: #90e0ef;
+        background: rgba(144, 224, 239, 0.1);
+        padding: 6px 16px;
+        border-radius: 20px;
+        border: 1px solid rgba(144, 224, 239, 0.3);
+        margin-left: 15px;
+    }
+    
     </style>
 </head>
 <body>
     <!-- Header -->
     <header>
         <nav>
-            <div class="logo">ForgeFit</div>
+            <div style="display: flex; align-items: center; gap: 15px;">
+                <div class="logo">ForgeFit</div>
+                <div class="logo-two">Trainer</div>
+            </div>
             <ul class="nav-links">
                 <li><a href="dashboard.php">Dashboard</a></li>
+                <li><a href="book.php">Book Client</a></li>
                 <li><a href="clients.php">My Clients</a></li>
                 <li><a href="profile.php">Profile</a></li>
                 <li><a href="../../logout.php" class="cta-btn">Logout</a></li>
@@ -544,138 +558,62 @@ $bookings_result = $bookings_stmt->get_result();
     <section>
          <div class="activities-card">
             <div class="activities-header">🎯 CLIENT BOOKINGS</div>
-            <div class="activity-list">
-                <?php if ($bookings_result->num_rows > 0): ?>
-                    <?php while ($booking = $bookings_result->fetch_assoc()): ?>
-                        <div class="activity-item">
-                            <div class="activity-icon">
-                                <i class="ph-duotone ph-user-circle"></i>
-                            </div>
-                            <div class="activity-content">
-                                <div class="activity-title"><?php echo htmlspecialchars($booking['username']); ?></div>
-                                <div class="activity-description">
-                                    📅 <?php echo date('F j, Y', strtotime($booking['booking_date'])); ?> at 
-                                    <?php echo date('g:i A', strtotime($booking['booking_time'])); ?>
-                                    <?php if ($booking['email']): ?>
-                                        <br>📧 <?php echo htmlspecialchars($booking['email']); ?>
-                                    <?php endif; ?>
-                                    <?php if ($booking['phone']): ?>
-                                        | 📞 <?php echo htmlspecialchars($booking['phone']); ?>
-                                    <?php endif; ?>
 
-                                    <?php if ($booking['status'] === 'reschedule_requested'): ?>
-                                    <div style="font-size: 0.9rem; color: #f59e0b; margin-top: 5px;">
-                                        🔄 Requested Reschedule: 
-                                        <?php 
-                                            echo date('F j, Y', strtotime($booking['requested_date'])) . 
-                                                ' at ' . 
-                                                date('g:i A', strtotime($booking['requested_time'])); 
-                                            ?>
-                                        </div>
-                                    <?php endif; ?>
-                                </div>
+            <div class="activity-list">
+            <?php if ($bookings_result->num_rows > 0): ?>
+                <?php while ($booking = $bookings_result->fetch_assoc()): ?>
+                    <div class="activity-item">
+                        <div class="activity-icon">
+                            <i class="ti ti-user"></i>
+                        </div>
+                        <div class="activity-content">
+                            <div class="activity-title">
+                                <?php echo htmlspecialchars($booking['username']); ?> 
+                                (<?php echo htmlspecialchars($booking['email']); ?>)
                             </div>
-                            <div class="activity-meta">
-                                <span class="activity-timestamp">
-                                    <span class="status-dot <?php echo $booking['status']; ?>"></span> 
-                                    <?php echo ucfirst(str_replace('_', ' ', $booking['status'])); ?>
-                                </span>
-                                
-                                <!-- Trainer Action Buttons -->
-                                <div class="booking-actions">
-                                    <?php if ($booking['status'] === 'booked' || $booking['status'] === 'pending'): ?>
-                                        <!-- Confirm booking -->
-                                        <form method="POST" style="display: inline;">
-                                            <input type="hidden" name="booking_id" value="<?php echo $booking['id']; ?>">
-                                            <button type="submit" name="confirm_booking" class="action-btn btn-confirm">
-                                                ✓ Confirm
-                                            </button>
-                                        </form>
-                                        
-                                        <!-- Reject booking -->
-                                        <form method="POST" style="display: inline;" onsubmit="return confirm('Are you sure you want to reject this booking?');">
-                                            <input type="hidden" name="booking_id" value="<?php echo $booking['id']; ?>">
-                                            <button type="submit" name="reject_booking" class="action-btn btn-reject">
-                                                ✕ Reject
-                                            </button>
-                                        </form>
-                                    <?php endif; ?>
-                                    
-                                    <?php if ($booking['status'] === 'reschedule_requested'): ?>
-                                        <!-- Approve reschedule -->
-                                        <form method="POST" style="display: inline;">
-                                            <input type="hidden" name="booking_id" value="<?php echo $booking['id']; ?>">
-                                            <button type="submit" name="approve_reschedule" class="action-btn btn-reschedule">
-                                                ✓ Approve Reschedule
-                                            </button>
-                                        </form>
-                                    <?php endif; ?>
-                                    
-                                    <?php if ($booking['status'] === 'confirmed'): ?>
-                                        <!-- Mark as completed -->
-                                        <form method="POST" style="display: inline;">
-                                            <input type="hidden" name="booking_id" value="<?php echo $booking['id']; ?>">
-                                            <button type="submit" name="mark_completed" class="action-btn btn-complete">
-                                                ✓ Mark Complete
-                                            </button>
-                                        </form>
-                                    <?php endif; ?>
-                                </div>
+                            <div class="activity-description">
+                                <?php echo date('M d, Y', strtotime($booking['booking_date'])); ?> 
+                                at <?php echo date('h:i A', strtotime($booking['booking_time'])); ?> 
+                                — 
+                                <strong><?php echo ucfirst(htmlspecialchars($booking['status'])); ?></strong>
                             </div>
                         </div>
-                    <?php endwhile; ?>
-                <?php else: ?>
-                    <p style="text-align: center; color: #64748b; padding: 20px;">
-                        No client bookings yet. Start building your client base! 💪
-                    </p>
-                <?php endif; ?>
-            </div>
+                        <div class="activity-meta">
+                            <span class="activity-timestamp">
+                                <span class="status-dot <?php echo htmlspecialchars($booking['status']); ?>"></span>
+                                <?php echo date('M d, Y', strtotime($booking['created_at'])); ?>
+                            </span>
+                            <div class="booking-actions">
+                                <?php if ($booking['status'] === 'booked' || $booking['status'] === 'pending'): ?>
+                                    <form method="POST" style="display:inline;">
+                                        <input type="hidden" name="booking_id" value="<?php echo $booking['id']; ?>">
+                                        <button type="submit" name="confirm_booking" class="action-btn btn-confirm">Confirm</button>
+                                    </form>
+                                    <form method="POST" style="display:inline;">
+                                        <input type="hidden" name="booking_id" value="<?php echo $booking['id']; ?>">
+                                        <button type="submit" name="reject_booking" class="action-btn btn-reject">Reject</button>
+                                    </form>
+                                <?php elseif ($booking['status'] === 'confirmed'): ?>
+                                    <form method="POST" style="display:inline;">
+                                        <input type="hidden" name="booking_id" value="<?php echo $booking['id']; ?>">
+                                        <button type="submit" name="mark_completed" class="action-btn btn-complete">Mark Completed</button>
+                                    </form>
+                                <?php elseif ($booking['status'] === 'reschedule_requested'): ?>
+                                    <form method="POST" style="display:inline;">
+                                        <input type="hidden" name="booking_id" value="<?php echo $booking['id']; ?>">
+                                        <button type="submit" name="approve_reschedule" class="action-btn btn-reschedule">Approve Reschedule</button>
+                                    </form>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+                    </div>
+                <?php endwhile; ?>
+            <?php else: ?>
+                <p class="no-trainers">No client bookings yet.</p>
+            <?php endif; ?>
         </div>
+    </div>
     </section>
-    </main>
-
-    <footer>
-        <div class="footer-bottom">
-            <p>&copy; 2025 ForgeFit Gym. All rights reserved.</p>
-        </div>
-    </footer>
-
-    <!-- Required Js -->
-    <script src="../assets/js/plugins/simplebar.min.js"></script>
-    <script src="../assets/js/plugins/popper.min.js"></script>
-    <script src="../assets/js/plugins/feather.min.js"></script>
-    <script src="../assets/js/component.js"></script>
-    <script src="../assets/js/theme.js"></script>
-    <script src="../assets/js/script.js"></script>
-
-    <script>
-        // Smooth scrolling for navigation links
-        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
-            anchor.addEventListener('click', function (e) {
-                e.preventDefault();
-                const target = document.querySelector(this.getAttribute('href'));
-                if (target) {
-                    target.scrollIntoView({
-                        behavior: 'smooth',
-                        block: 'start'
-                    });
-                }
-            });
-        });
-
-        // Header background change on scroll
-        window.addEventListener('scroll', function() {
-            const header = document.querySelector('header');
-            if (window.scrollY > 50) {
-                header.style.background = 'linear-gradient(135deg, rgba(15, 23, 42, 0.98) 0%, rgba(30, 41, 59, 0.98) 100%)';
-            } else {
-                header.style.background = 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)';
-            }
-        });
-    </script>
+</main>
 </body>
 </html>
-<?php
-    // Close connection
-    $conn->close();
-?>

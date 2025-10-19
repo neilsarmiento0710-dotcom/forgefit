@@ -42,7 +42,7 @@ if (isset($_POST['cancel_booking'])) {
     if ($check_result->num_rows > 0) {
         $booking = $check_result->fetch_assoc();
         
-    if ($booking['status'] === 'pending' || $booking['status'] === 'booked') { 
+        if ($booking['status'] === 'pending' || $booking['status'] === 'booked') { 
             $cancel_sql = "UPDATE bookings SET status = 'cancelled' WHERE id = ? AND user_id = ?";
             $cancel_stmt = $conn->prepare($cancel_sql);
             $cancel_stmt->bind_param("ii", $booking_id, $user_id);
@@ -89,18 +89,18 @@ if (isset($_POST['request_reschedule'])) {
 if (isset($_POST['submit'])) {
     // handle form submission if needed
 } else {
-    // Fetch trainers from database
-    $sql = "SELECT * FROM trainers";
+    // ✅ Fetch trainers from users table
+    $sql = "SELECT * FROM users WHERE role = 'trainer'";
     $result = $conn->query($sql);
 
     if ($result === false) {
         die("Database query failed: " . $conn->error);
     }
 
-    // Fetch user's bookings
-    $bookings_sql = "SELECT b.*, t.name as trainer_name, t.specialty 
+    // ✅ Fetch user's bookings with trainer info
+    $bookings_sql = "SELECT b.*, t.username AS trainer_name, t.specialty 
                      FROM bookings b 
-                     JOIN trainers t ON b.trainer_id = t.id 
+                     JOIN users t ON b.trainer_id = t.id 
                      WHERE b.user_id = ? 
                      ORDER BY b.booking_date DESC, b.booking_time DESC";
     $bookings_stmt = $conn->prepare($bookings_sql);
@@ -426,13 +426,27 @@ if (isset($_POST['submit'])) {
             justify-content: center;
             font-size: 1.2rem;
         }
-    </style>
+
+    .logo-two {
+        font-size: 0.9rem;
+        font-weight: 600;
+        color: #90e0ef;
+        background: rgba(144, 224, 239, 0.1);
+        padding: 6px 16px;
+        border-radius: 20px;
+        border: 1px solid rgba(144, 224, 239, 0.3);
+        margin-left: 15px;
+    }
+</style>
 </head>
 <body>
     <!-- Header -->
     <header>
         <nav>
-            <div class="logo">ForgeFit</div>
+            <div style="display: flex; align-items: center; gap: 15px;">
+                <div class="logo">ForgeFit</div>
+                <div class="logo-two">Member</div>
+            </div>
             <ul class="nav-links">
                 <li><a href="dashboard.php">Dashboard</a></li>
                 <li><a href="trainers.php">Trainers</a></li>

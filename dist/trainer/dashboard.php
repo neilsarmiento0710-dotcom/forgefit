@@ -28,14 +28,12 @@ if ($_SESSION['user']['role'] !== 'trainer') {
     exit();
 }
 
-// Get trainer information
-$user_id = $_SESSION['user']['id'];
-$trainer_id = $_SESSION['user']['trainer_id'];
+$user_id = $_SESSION['user']['id']; 
 
-// Fetch trainer details
-$trainer_sql = "SELECT * FROM trainers WHERE id = ?";
+// Fetch trainer details from users table
+$trainer_sql = "SELECT * FROM users WHERE id = ? AND role = 'trainer'";
 $trainer_stmt = $conn->prepare($trainer_sql);
-$trainer_stmt->bind_param("i", $trainer_id);
+$trainer_stmt->bind_param("i", $user_id);
 $trainer_stmt->execute();
 $trainer_info = $trainer_stmt->get_result()->fetch_assoc();
 
@@ -43,14 +41,14 @@ $trainer_info = $trainer_stmt->get_result()->fetch_assoc();
 // Total unique clients
 $total_clients_sql = "SELECT COUNT(DISTINCT user_id) as total FROM bookings WHERE trainer_id = ?";
 $total_clients_stmt = $conn->prepare($total_clients_sql);
-$total_clients_stmt->bind_param("i", $trainer_id);
+$total_clients_stmt->bind_param("i", $user_id);
 $total_clients_stmt->execute();
 $total_clients = $total_clients_stmt->get_result()->fetch_assoc()['total'];
 
 // Total bookings
 $total_bookings_sql = "SELECT COUNT(*) as total FROM bookings WHERE trainer_id = ?";
 $total_bookings_stmt = $conn->prepare($total_bookings_sql);
-$total_bookings_stmt->bind_param("i", $trainer_id);
+$total_bookings_stmt->bind_param("i", $user_id);
 $total_bookings_stmt->execute();
 $total_bookings = $total_bookings_stmt->get_result()->fetch_assoc()['total'];
 
@@ -60,7 +58,7 @@ $upcoming_sessions_sql = "SELECT COUNT(*) as total FROM bookings
                           AND booking_date >= CURDATE() 
                           AND status = 'confirmed'";
 $upcoming_stmt = $conn->prepare($upcoming_sessions_sql);
-$upcoming_stmt->bind_param("i", $trainer_id);
+$upcoming_stmt->bind_param("i", $user_id);
 $upcoming_stmt->execute();
 $upcoming_sessions = $upcoming_stmt->get_result()->fetch_assoc()['total'];
 
@@ -68,9 +66,9 @@ $upcoming_sessions = $upcoming_stmt->get_result()->fetch_assoc()['total'];
 $pending_sessions_sql = "SELECT COUNT(*) as total FROM bookings 
                           WHERE trainer_id = ? 
                           AND booking_date >= CURDATE() 
-                          AND status IN ('pending', 'reschedule_requested')";
+                          AND status IN ('pending', 'reschedule_requested', 'booked')";
 $pending_stmt = $conn->prepare($pending_sessions_sql);
-$pending_stmt->bind_param("i", $trainer_id);
+$pending_stmt->bind_param("i", $user_id);
 $pending_stmt->execute();
 $pending_sessions = $pending_stmt->get_result()->fetch_assoc()['total'];
 
@@ -83,7 +81,7 @@ $bookings_sql = "SELECT b.*, u.username, u.email, u.phone
                  ORDER BY b.booking_time ASC 
                  LIMIT 10";
 $bookings_stmt = $conn->prepare($bookings_sql);
-$bookings_stmt->bind_param("i", $trainer_id);
+$bookings_stmt->bind_param("i", $user_id);
 $bookings_stmt->execute();
 $bookings_result = $bookings_stmt->get_result();
 ?>
@@ -105,14 +103,31 @@ $bookings_result = $bookings_stmt->get_result();
     <link rel="stylesheet" href="../assets/fonts/material.css" />
     <link rel="stylesheet" href="../assets/css/home.css?v=4"/> 
     <link rel="stylesheet" href="../assets/css/member_dashboard.css" id="main-style-link"/> 
+
+    <style>
+    .logo-two {
+        font-size: 0.9rem;
+        font-weight: 600;
+        color: #90e0ef;
+        background: rgba(144, 224, 239, 0.1);
+        padding: 6px 16px;
+        border-radius: 20px;
+        border: 1px solid rgba(144, 224, 239, 0.3);
+        margin-left: 15px;
+    }
+</style>
 </head>
 
 <body>
     <header>
         <nav>
-            <div class="logo">ForgeFit</div>
+            <div style="display: flex; align-items: center; gap: 15px;">
+                <div class="logo">ForgeFit</div>
+                <div class="logo-two">Trainer</div>
+            </div>
             <ul class="nav-links">
                 <li><a href="dashboard.php" class="active">Dashboard</a></li>
+                <li><a href="book.php">Book Client</a></li>
                 <li><a href="clients.php">My Clients</a></li>
                 <li><a href="profile.php">Profile</a></li>
                 <li><a href="../../logout.php" class="cta-btn">Logout</a></li>
@@ -140,7 +155,7 @@ $bookings_result = $bookings_stmt->get_result();
 
         <!-- Dashboard Header -->
         <div class="dashboard-hero">
-            <h1 class="dashboard-title">Welcome Back, <?php echo htmlspecialchars($trainer_info['name']); ?>!</h1>
+            <h1 class="dashboard-title">Welcome Back, <?php echo htmlspecialchars($trainer_info['username']); ?>!</h1>
             <p style="color: #90e0ef; margin-top: 10px; font-size: 1rem;">
                 Specialty: <?php echo htmlspecialchars($trainer_info['specialty']); ?>
             </p>
@@ -258,7 +273,7 @@ $bookings_result = $bookings_stmt->get_result();
                                          AND MONTH(booking_date) = MONTH(CURDATE()) 
                                          AND YEAR(booking_date) = YEAR(CURDATE())";
                             $month_stmt = $conn->prepare($month_sql);
-                            $month_stmt->bind_param("i", $trainer_id);
+                            $month_stmt->bind_param("i", $user_id);
                             $month_stmt->execute();
                             echo $month_stmt->get_result()->fetch_assoc()['total'];
                             ?>
@@ -274,7 +289,7 @@ $bookings_result = $bookings_stmt->get_result();
                                          WHERE trainer_id = ? 
                                          AND booking_date = CURDATE()";
                             $today_stmt = $conn->prepare($today_sql);
-                            $today_stmt->bind_param("i", $trainer_id);
+                            $today_stmt->bind_param("i", $user_id);
                             $today_stmt->execute();
                             echo $today_stmt->get_result()->fetch_assoc()['total'];
                             ?>
@@ -290,7 +305,7 @@ $bookings_result = $bookings_stmt->get_result();
                                             WHERE trainer_id = ? 
                                             AND status = 'completed'";
                             $completed_stmt = $conn->prepare($completed_sql);
-                            $completed_stmt->bind_param("i", $trainer_id);
+                            $completed_stmt->bind_param("i", $user_id);
                             $completed_stmt->execute();
                             $completed = $completed_stmt->get_result()->fetch_assoc()['total'];
                             $completion_rate = $total_bookings > 0 ? round(($completed / $total_bookings) * 100) : 0;

@@ -21,105 +21,472 @@ if (!isset($_SESSION['user']) || $_SESSION['user']['role'] !== 'management') {
     exit();
 }
 
-// === Approve Payment ===
-if (isset($_POST['approve_id'])) {
-    $payment_id = intval($_POST['approve_id']);
-    
-    // Update payment status to 'paid'
-    $update_sql = "UPDATE payments SET status = 'paid' WHERE id = ?";
-    $stmt = $conn->prepare($update_sql);
-    $stmt->bind_param("i", $payment_id);
+// === AUTO-SYNC: Ensure all "paid" payments have "active" memberships ===
+// Note: Memberships are linked via user_id, not payment_id
+$sync_sql = "UPDATE memberships m
+             INNER JOIN payments p ON m.user_id = p.user_id
+             SET m.status = 'active'
+             WHERE p.status = 'paid' AND m.status != 'active'";
+$conn->query($sync_sql);
 
-    if ($stmt->execute()) {
-        // Update the corresponding membership status to 'active'
-        $update_membership_sql = "UPDATE memberships m 
-                                  JOIN payments p ON m.id = p.membership_id 
-                                  SET m.status = 'active' 
-                                  WHERE p.id = ?";
-        $update_membership_stmt = $conn->prepare($update_membership_sql);
-        $update_membership_stmt->bind_param("i", $payment_id);
-        $update_membership_stmt->execute();
+// Also sync user status
+$sync_user_sql = "UPDATE users u
+                  INNER JOIN payments p ON u.id = p.user_id
+                  SET u.status = 'active'
+                  WHERE p.status = 'paid' AND u.status != 'active'";
+$conn->query($sync_user_sql);
+
+// === Update Payment ===
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_payment'])) {
+    $payment_id = intval($_POST['payment_id']);
+    $amount = floatval($_POST['amount']);
+    $payment_method = $_POST['payment_method'];
+    $status = $_POST['status'];
+    
+    $conn->begin_transaction();
+    
+    try {
+        // Get current payment info
+        $get_info_sql = "SELECT user_id, status as old_status FROM payments WHERE id = ?";
+        $stmt = $conn->prepare($get_info_sql);
+        $stmt->bind_param("i", $payment_id);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        $payment_info = $result->fetch_assoc();
         
-        $_SESSION['success_message'] = "✅ Payment #{$payment_id} approved and membership activated!";
-    } else {
-        $_SESSION['error_message'] = "❌ Failed to approve payment.";
+        if (!$payment_info) {
+            throw new Exception("Payment not found");
+        }
+        
+        $user_id = $payment_info['user_id'];
+        $old_status = $payment_info['old_status'];
+        
+        // Update payment
+        $update_sql = "UPDATE payments SET amount = ?, payment_method = ?, status = ? WHERE id = ?";
+        $stmt = $conn->prepare($update_sql);
+        $stmt->bind_param("dssi", $amount, $payment_method, $status, $payment_id);
+        
+        if (!$stmt->execute()) {
+            throw new Exception("Failed to update payment");
+        }
+        
+        // If status changed to 'paid', activate membership and user
+        if ($status === 'paid' && $old_status !== 'paid') {
+            // Update all memberships for this user to active
+            $update_membership_sql = "UPDATE memberships SET status = 'active' WHERE user_id = ?";
+            $stmt = $conn->prepare($update_membership_sql);
+            $stmt->bind_param("i", $user_id);
+            $stmt->execute();
+            
+            $update_user_sql = "UPDATE users SET status = 'active' WHERE id = ?";
+            $stmt = $conn->prepare($update_user_sql);
+            $stmt->bind_param("i", $user_id);
+            $stmt->execute();
+        }
+        
+        // If status changed from 'paid' to something else, deactivate membership
+        if ($status !== 'paid' && $old_status === 'paid') {
+            // Check if user has any other paid payments
+            $check_sql = "SELECT COUNT(*) as paid_count FROM payments WHERE user_id = ? AND status = 'paid' AND id != ?";
+            $stmt = $conn->prepare($check_sql);
+            $stmt->bind_param("ii", $user_id, $payment_id);
+            $stmt->execute();
+            $check_result = $stmt->get_result();
+            $paid_count = $check_result->fetch_assoc()['paid_count'];
+            
+            // Only deactivate if no other paid payments exist
+            if ($paid_count == 0) {
+                $update_membership_sql = "UPDATE memberships SET status = 'inactive' WHERE user_id = ?";
+                $stmt = $conn->prepare($update_membership_sql);
+                $stmt->bind_param("i", $user_id);
+                $stmt->execute();
+                
+                $update_user_sql = "UPDATE users SET status = 'inactive' WHERE id = ?";
+                $stmt = $conn->prepare($update_user_sql);
+                $stmt->bind_param("i", $user_id);
+                $stmt->execute();
+            }
+        }
+        
+        $conn->commit();
+        $_SESSION['success_message'] = "Payment updated successfully!";
+        
+    } catch (Exception $e) {
+        $conn->rollback();
+        $_SESSION['error_message'] = "Failed to update payment: " . $e->getMessage();
     }
+    
     header("Location: payments.php");
     exit();
 }
 
-// === Fetch Payments ===
+// === Delete Payment ===
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_payment'])) {
+    $payment_id = intval($_POST['payment_id']);
+    
+    $delete_sql = "DELETE FROM payments WHERE id = ?";
+    $stmt = $conn->prepare($delete_sql);
+    $stmt->bind_param("i", $payment_id);
+    
+    if ($stmt->execute()) {
+        $_SESSION['success_message'] = "Payment deleted successfully!";
+    } else {
+        $_SESSION['error_message'] = "Failed to delete payment.";
+    }
+    $stmt->close();
+    header("Location: payments.php");
+    exit();
+}
+
+// === Approve Payment (Quick Action) ===
+if (isset($_POST['approve_id'])) {
+    $payment_id = intval($_POST['approve_id']);
+    
+    $conn->begin_transaction();
+    
+    try {
+        $get_info_sql = "SELECT user_id FROM payments WHERE id = ?";
+        $stmt = $conn->prepare($get_info_sql);
+        $stmt->bind_param("i", $payment_id);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        $payment_info = $result->fetch_assoc();
+        
+        if (!$payment_info) {
+            throw new Exception("Payment not found");
+        }
+        
+        $user_id = $payment_info['user_id'];
+        
+        $update_payment_sql = "UPDATE payments SET status = 'paid' WHERE id = ?";
+        $stmt = $conn->prepare($update_payment_sql);
+        $stmt->bind_param("i", $payment_id);
+        if (!$stmt->execute()) {
+            throw new Exception("Failed to update payment status");
+        }
+        
+        // Update all memberships for this user to active
+        $update_membership_sql = "UPDATE memberships SET status = 'active' WHERE user_id = ?";
+        $stmt = $conn->prepare($update_membership_sql);
+        $stmt->bind_param("i", $user_id);
+        $stmt->execute();
+        
+        $update_user_sql = "UPDATE users SET status = 'active' WHERE id = ?";
+        $stmt = $conn->prepare($update_user_sql);
+        $stmt->bind_param("i", $user_id);
+        $stmt->execute();
+        
+        $conn->commit();
+        $_SESSION['success_message'] = "Payment approved successfully!";
+        
+    } catch (Exception $e) {
+        $conn->rollback();
+        $_SESSION['error_message'] = "Failed to approve payment: " . $e->getMessage();
+    }
+    
+    header("Location: payments.php");
+    exit();
+}
+
+// Pagination setup
+$records_per_page = 10;
+$current_page = isset($_GET['page']) ? intval($_GET['page']) : 1;
+$offset = ($current_page - 1) * $records_per_page;
+
+// Get total number of payments
+$count_sql = "SELECT COUNT(*) as total FROM payments";
+$count_result = $conn->query($count_sql);
+$total_records = $count_result->fetch_assoc()['total'];
+$total_pages = ceil($total_records / $records_per_page);
+
+// === Fetch Payments with Pagination ===
 $sql = "SELECT p.id, u.username, u.email, p.amount, p.payment_method, p.status, p.payment_proof, p.created_at
         FROM payments p
         JOIN users u ON p.user_id = u.id
-        ORDER BY p.created_at DESC";
-$result = $conn->query($sql);
+        ORDER BY p.created_at DESC
+        LIMIT ? OFFSET ?";
+$stmt = $conn->prepare($sql);
+$stmt->bind_param("ii", $records_per_page, $offset);
+$stmt->execute();
+$result = $stmt->get_result();
 ?>
 
 <!doctype html>
 <html lang="en">
 <head>
-    <title>Admin - Payments | ForgeFit</title>
+    <title>Payments - ForgeFit Admin</title>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&display=swap" rel="stylesheet">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=0, minimal-ui" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="description" content="ForgeFit Admin Payments" />
+    <meta name="author" content="Sniper 2025" />
+    
+    <!-- Fonts & Styles -->
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet"> 
+    <link rel="stylesheet" href="../assets/fonts/phosphor/duotone/style.css" />
+    <link rel="stylesheet" href="../assets/fonts/tabler-icons.min.css" />
+    <link rel="stylesheet" href="../assets/fonts/feather.css" />
     <link rel="stylesheet" href="../assets/fonts/fontawesome.css" />
-    <link rel="stylesheet" href="../assets/css/home.css?v=4"/>
-    <link rel="stylesheet" href="../assets/css/member_dashboard.css" id="main-style-link"/>
+    <link rel="stylesheet" href="../assets/fonts/material.css" />
+    <link rel="stylesheet" href="../assets/css/home.css?v=4"/> 
+    <link rel="stylesheet" href="../assets/css/member_dashboard.css" id="main-style-link"/> 
+
     <style>
-        .payments-table {
+        .modern-table {
             width: 100%;
             border-collapse: collapse;
-            margin-top: 20px;
-            background: #fff;
+            margin-top: 30px;
             border-radius: 12px;
             overflow: hidden;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+            background-color: #0f172a;
         }
-        .payments-table th, .payments-table td {
-            padding: 14px 16px;
-            text-align: left;
+        .modern-table th {
+            background-color: #1e293b;
+            color: #e2e8f0;
+            text-transform: uppercase;
+            font-size: 0.85rem;
+            letter-spacing: 0.05em;
+            padding: 14px;
         }
-        .payments-table th {
-            background: #0f172a;
-            color: white;
+        .modern-table td {
+            padding: 12px;
+            border-bottom: 1px solid #1e293b;
+            color: #cbd5e1;
+            text-align: center;
         }
-        .payments-table tr:nth-child(even) {
-            background: #f8fafc;
-        }
-        .approve-btn {
-            background: linear-gradient(135deg, #16a34a, #22c55e);
-            border: none;
-            color: white;
-            padding: 6px 12px;
-            border-radius: 8px;
-            cursor: pointer;
+        .status-badge {
+            padding: 6px 10px;
+            border-radius: 20px;
             font-weight: 600;
-        }
-        .approve-btn:hover {
-            background: linear-gradient(135deg, #15803d, #16a34a);
+            font-size: 0.85rem;
+            display: inline-block;
         }
         .status-paid {
-            color: #16a34a;
-            font-weight: 700;
+            background-color: #22c55e;
+            color: #fff;
         }
         .status-pending {
-            color: #f59e0b;
-            font-weight: 700;
+            background-color: #facc15;
+            color: #000;
         }
-        .message-box {
-            margin: 15px 0;
-            padding: 12px 16px;
-            border-radius: 10px;
+        .status-failed {
+            background-color: #ef4444;
+            color: #fff;
+        }
+        .dashboard-title {
+            text-align: center;
+            margin-top: 40px;
+            color: #f8fafc;
+        }
+        .action-btn {
+            padding: 6px 12px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            margin: 2px;
+            transition: all 0.3s ease;
+        }
+        .edit-btn {
+            background-color: #3b82f6;
+            color: white;
+        }
+        .edit-btn:hover {
+            background-color: #2563eb;
+        }
+        .delete-btn {
+            background-color: #ef4444;
+            color: white;
+        }
+        .delete-btn:hover {
+            background-color: #dc2626;
+        }
+        .approve-btn {
+            background-color: #22c55e;
+            color: white;
+        }
+        .approve-btn:hover {
+            background-color: #16a34a;
+        }
+        .view-proof-btn {
+            color: #60a5fa;
+            text-decoration: none;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        .view-proof-btn:hover {
+            color: #3b82f6;
+            text-decoration: underline;
+        }
+        .no-proof {
+            color: #64748b;
+            font-style: italic;
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.7);
+        }
+        .modal-content {
+            background-color: #1e293b;
+            margin: 5% auto;
+            padding: 30px;
+            border-radius: 12px;
+            width: 90%;
+            max-width: 600px;
+            color: #e2e8f0;
+            max-height: 85vh;
+            overflow-y: auto;
+        }
+        .modal-header {
+            font-size: 1.5rem;
+            margin-bottom: 20px;
+            color: #f8fafc;
+        }
+        .modal-footer {
+            margin-top: 20px;
+            text-align: right;
+        }
+        .close {
+            color: #94a3b8;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .close:hover {
+            color: #f8fafc;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #cbd5e1;
+            font-weight: 500;
+        }
+        .form-control {
+            width: 100%;
+            padding: 10px;
+            border-radius: 6px;
+            background-color: #0f172a !important;
+            color: #e2e8f0 !important;
+            border: 1px solid #334155;
+            font-size: 0.95rem;
+        }
+        .form-control:focus {
+            outline: none;
+            border-color: #3b82f6;
+            background-color: #0f172a !important;
+            color: #e2e8f0 !important;
+        }
+        .form-control:hover {
+            background-color: #0f172a !important;
+            border-color: #475569;
+        }
+        .form-control[readonly] {
+            background-color: #1e293b !important;
+            color: #94a3b8 !important;
+            cursor: not-allowed;
+        }
+        select.form-control option {
+            background-color: #0f172a;
+            color: #e2e8f0;
+        }
+        .pagination {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+            margin: 30px 0;
+        }
+        .pagination a, .pagination span {
+            padding: 10px 16px;
+            background-color: #1e293b;
+            color: #e2e8f0;
+            text-decoration: none;
+            border-radius: 6px;
+            transition: all 0.3s ease;
+        }
+        .pagination a:hover {
+            background-color: #3b82f6;
+        }
+        .pagination .active {
+            background-color: #3b82f6;
             font-weight: 600;
         }
-        .success {
-            background: #dcfce7;
-            color: #166534;
+        .pagination .disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
         }
-        .error {
-            background: #fee2e2;
-            color: #991b1b;
+        .alert {
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 8px;
+            text-align: center;
+        }
+        .alert-success {
+            background-color: #22c55e;
+            color: white;
+        }
+        .alert-error {
+            background-color: #ef4444;
+            color: white;
+        }
+        .image-modal {
+            display: none;
+            position: fixed;
+            z-index: 2000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.9);
+        }
+        .image-modal.active {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .image-modal-content {
+            position: relative;
+            max-width: 90%;
+            max-height: 90%;
+        }
+        .modal-image {
+            max-width: 100%;
+            max-height: 90vh;
+            display: block;
+            border-radius: 8px;
+        }
+        .image-close {
+            position: absolute;
+            top: -40px;
+            right: 0;
+            font-size: 35px;
+            font-weight: bold;
+            color: white;
+            cursor: pointer;
+        }
+        .image-close:hover {
+            color: #cbd5e1;
+        }
+
+        .logo-two {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: #90e0ef;
+            background: rgba(144, 224, 239, 0.1);
+            padding: 6px 16px;
+            border-radius: 20px;
+            border: 1px solid rgba(144, 224, 239, 0.3);
+            margin-left: 15px;
         }
     </style>
 </head>
@@ -127,18 +494,20 @@ $result = $conn->query($sql);
 <body>
 <header>
     <nav>
+         <div style="display: flex; align-items: center; gap: 15px;">
         <div class="logo">ForgeFit</div>
+        <div class="logo-two">Admin</div>
+    </div>
         <ul class="nav-links">
             <li><a href="dashboard.php">Dashboard</a></li>
             <li><a href="bookings.php">Bookings</a></li>
             <li><a href="users.php">Users</a></li>
             <li><a href="payments.php" class="active">Payments</a></li>
+            <li><a href="member_rates.php">Membership Rates</a></li>
             <li><a href="../../logout.php" class="cta-btn">Logout</a></li>
         </ul>
         <div class="mobile-menu">
-            <span></span>
-            <span></span>
-            <span></span>
+            <span></span><span></span><span></span>
         </div>
     </nav>
 </header>
@@ -146,71 +515,199 @@ $result = $conn->query($sql);
 <main>
     <div class="dashboard-hero">
         <h1 class="dashboard-title">💳 Payments Management</h1>
-        <div class="breadcrumb">
-            <a href="dashboard.php">Home</a> / <span>Payments</span>
-        </div>
     </div>
 
-    <div class="dashboard-content">
-        <?php if (isset($_SESSION['success_message'])): ?>
-            <div class="message-box success"><?php echo $_SESSION['success_message']; unset($_SESSION['success_message']); ?></div>
-        <?php elseif (isset($_SESSION['error_message'])): ?>
-            <div class="message-box error"><?php echo $_SESSION['error_message']; unset($_SESSION['error_message']); ?></div>
-        <?php endif; ?>
+    <?php if (isset($_SESSION['success_message'])): ?>
+        <div class="alert alert-success">
+            <?php 
+                echo $_SESSION['success_message']; 
+                unset($_SESSION['success_message']);
+            ?>
+        </div>
+    <?php endif; ?>
 
-        <table class="payments-table">
+    <?php if (isset($_SESSION['error_message'])): ?>
+        <div class="alert alert-error">
+            <?php 
+                echo $_SESSION['error_message']; 
+                unset($_SESSION['error_message']);
+            ?>
+        </div>
+    <?php endif; ?>
+
+    <div class="earnings-grid">
+        <table class="modern-table">
             <thead>
                 <tr>
                     <th>ID</th>
                     <th>Member</th>
-                    <th>Email</th>
                     <th>Amount</th>
                     <th>Method</th>
-                    <th>Proof of Payment</th>
+                    <th>Proof</th>
                     <th>Status</th>
-                    <th>Payment Date</th>
-                    <th>Action</th>
+                    <th>Date</th>
+                    <th>Actions</th>
                 </tr>
             </thead>
             <tbody>
                 <?php if ($result && $result->num_rows > 0): ?>
                     <?php while ($row = $result->fetch_assoc()): ?>
+                        <?php
+                            $statusClass = '';
+                            switch (strtolower($row['status'])) {
+                                case 'paid': $statusClass = 'status-paid'; break;
+                                case 'failed': $statusClass = 'status-failed'; break;
+                                default: $statusClass = 'status-pending';
+                            }
+                        ?>
                         <tr>
-                            <td><?php echo $row['id']; ?></td>
-                            <td><?php echo htmlspecialchars($row['username']); ?></td>
-                            <td><?php echo htmlspecialchars($row['email']); ?></td>
+                            <td>#<?php echo $row['id']; ?></td>
+                            <td>
+                                <?php echo htmlspecialchars($row['username']); ?><br>
+                                <small><?php echo htmlspecialchars($row['email']); ?></small>
+                            </td>
                             <td>₱<?php echo number_format($row['amount'], 2); ?></td>
                             <td><?php echo ucfirst($row['payment_method']); ?></td>
                             <td>
                                 <?php if (!empty($row['payment_proof'])): ?>
-                                    <a href="../uploads/payments/<?php echo htmlspecialchars($row['payment_proof']); ?>" 
-                                    target="_blank" 
-                                    class="view-proof-btn">View Proof</a>
-                                <?php else: ?><span class="no-proof">No proof uploaded</span><?php endif; ?>
+                                    <a href="#" 
+                                       class="view-proof-btn" 
+                                       onclick="openImageModal('../uploads/payments/<?php echo htmlspecialchars($row['payment_proof']); ?>'); return false;">
+                                       View Proof
+                                    </a>
+                                <?php else: ?>
+                                    <span class="no-proof">No proof</span>
+                                <?php endif; ?>
                             </td>
-                            <td class="<?php echo ($row['status'] == 'paid') ? 'status-paid' : 'status-pending'; ?>">
-                                <?php echo strtoupper($row['status']); ?>
-                            </td>
-                            <td><?php echo date('M d, Y h:i A', strtotime($row['created_at'])); ?></td>
+                            <td><span class="status-badge <?php echo $statusClass; ?>"><?php echo ucfirst($row['status']); ?></span></td>
+                            <td><?php echo date('M d, Y', strtotime($row['created_at'])); ?></td>
                             <td>
                                 <?php if ($row['status'] != 'paid'): ?>
                                     <form method="POST" action="" style="display:inline;">
                                         <input type="hidden" name="approve_id" value="<?php echo $row['id']; ?>">
-                                        <button type="submit" class="approve-btn">Approve</button>
+                                        <button type="submit" class="action-btn approve-btn">Approve</button>
                                     </form>
-                                <?php else: ?>
-                                    ✅
                                 <?php endif; ?>
+                                <button class="action-btn edit-btn" onclick="openEditModal(<?php echo $row['id']; ?>, '<?php echo htmlspecialchars($row['username']); ?>', <?php echo $row['amount']; ?>, '<?php echo $row['payment_method']; ?>', '<?php echo $row['status']; ?>')">
+                                    Edit
+                                </button>
+                                <button class="action-btn delete-btn" onclick="confirmDelete(<?php echo $row['id']; ?>)">
+                                    Delete
+                                </button>
                             </td>
                         </tr>
                     <?php endwhile; ?>
                 <?php else: ?>
-                    <tr><td colspan="8" style="text-align:center; padding:20px;">No payment records found.</td></tr>
+                    <tr><td colspan="8" style="color:#94a3b8;">No payment records found.</td></tr>
                 <?php endif; ?>
             </tbody>
         </table>
+
+        <!-- Pagination -->
+        <?php if ($total_pages > 1): ?>
+            <div class="pagination">
+                <?php if ($current_page > 1): ?>
+                    <a href="?page=1">First</a>
+                    <a href="?page=<?php echo $current_page - 1; ?>">Previous</a>
+                <?php else: ?>
+                    <span class="disabled">First</span>
+                    <span class="disabled">Previous</span>
+                <?php endif; ?>
+
+                <?php
+                    $start_page = max(1, $current_page - 2);
+                    $end_page = min($total_pages, $current_page + 2);
+                    
+                    for ($i = $start_page; $i <= $end_page; $i++):
+                ?>
+                    <?php if ($i == $current_page): ?>
+                        <span class="active"><?php echo $i; ?></span>
+                    <?php else: ?>
+                        <a href="?page=<?php echo $i; ?>"><?php echo $i; ?></a>
+                    <?php endif; ?>
+                <?php endfor; ?>
+
+                <?php if ($current_page < $total_pages): ?>
+                    <a href="?page=<?php echo $current_page + 1; ?>">Next</a>
+                    <a href="?page=<?php echo $total_pages; ?>">Last</a>
+                <?php else: ?>
+                    <span class="disabled">Next</span>
+                    <span class="disabled">Last</span>
+                <?php endif; ?>
+            </div>
+        <?php endif; ?>
     </div>
 </main>
+
+<!-- Edit Payment Modal -->
+<div id="editModal" class="modal">
+    <div class="modal-content">
+        <span class="close" onclick="closeEditModal()">&times;</span>
+        <h2 class="modal-header">Edit Payment</h2>
+        <form method="POST" action="">
+            <input type="hidden" name="payment_id" id="edit_payment_id">
+            
+            <div class="form-group">
+                <label>Member:</label>
+                <input type="text" id="edit_member" class="form-control" readonly>
+            </div>
+            
+            <div class="form-group">
+                <label for="edit_amount">Amount (₱):</label>
+                <input type="number" name="amount" id="edit_amount" class="form-control" step="0.01" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="edit_payment_method">Payment Method:</label>
+                <select name="payment_method" id="edit_payment_method" class="form-control" required>
+                    <option value="gcash">GCash</option>
+                    <option value="paymaya">PayMaya</option>
+                    <option value="bank_transfer">Bank Transfer</option>
+                    <option value="cash">Cash</option>
+                    <option value="card">Card</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label for="edit_status">Status:</label>
+                <select name="status" id="edit_status" class="form-control" required>
+                    <option value="pending">Pending</option>
+                    <option value="paid">Paid</option>
+                    <option value="failed">Failed</option>
+                </select>
+            </div>
+            
+            <div class="modal-footer">
+                <button type="button" class="action-btn" onclick="closeEditModal()" style="background-color: #64748b;">Cancel</button>
+                <button type="submit" name="update_payment" class="action-btn edit-btn">Update Payment</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div id="deleteModal" class="modal">
+    <div class="modal-content">
+        <span class="close" onclick="closeDeleteModal()">&times;</span>
+        <h2 class="modal-header">Confirm Deletion</h2>
+        <p>Are you sure you want to delete this payment record? This action cannot be undone.</p>
+        <form method="POST" action="">
+            <input type="hidden" name="payment_id" id="delete_payment_id">
+            <div class="modal-footer">
+                <button type="button" class="action-btn" onclick="closeDeleteModal()" style="background-color: #64748b;">Cancel</button>
+                <button type="submit" name="delete_payment" class="action-btn delete-btn">Delete Payment</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Image Modal for Payment Proof -->
+<div id="imageModal" class="image-modal">
+    <div class="image-modal-content">
+        <span class="image-close" onclick="closeImageModal()">&times;</span>
+        <img id="modalImage" class="modal-image" src="" alt="Payment Proof">
+    </div>
+</div>
 
 <footer>
     <div class="footer-bottom">
@@ -218,10 +715,82 @@ $result = $conn->query($sql);
     </div>
 </footer>
 
+<script src="../assets/js/plugins/feather.min.js"></script>
 <script>
-    // Mobile menu toggle
-    document.querySelector('.mobile-menu')?.addEventListener('click', () => {
-        document.querySelector('.nav-links').classList.toggle('active');
+    document.addEventListener('DOMContentLoaded', function() {
+        const mobileMenu = document.querySelector('.mobile-menu');
+        const navLinks = document.querySelector('.nav-links');
+        if (mobileMenu) {
+            mobileMenu.addEventListener('click', function() {
+                navLinks.classList.toggle('active');
+            });
+        }
+        window.addEventListener('scroll', function() {
+            const header = document.querySelector('header');
+            if (window.scrollY > 50) {
+                header.style.background = 'linear-gradient(135deg, rgba(15, 23, 42, 0.98) 0%, rgba(30, 41, 59, 0.98) 100%)';
+            } else {
+                header.style.background = 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)';
+            }
+        });
+    });
+
+    function openEditModal(id, member, amount, method, status) {
+        document.getElementById('edit_payment_id').value = id;
+        document.getElementById('edit_member').value = member;
+        document.getElementById('edit_amount').value = amount;
+        document.getElementById('edit_payment_method').value = method;
+        document.getElementById('edit_status').value = status;
+        document.getElementById('editModal').style.display = 'block';
+    }
+
+    function closeEditModal() {
+        document.getElementById('editModal').style.display = 'none';
+    }
+
+    function confirmDelete(id) {
+        document.getElementById('delete_payment_id').value = id;
+        document.getElementById('deleteModal').style.display = 'block';
+    }
+
+    function closeDeleteModal() {
+        document.getElementById('deleteModal').style.display = 'none';
+    }
+
+    function openImageModal(imageSrc) {
+        const modal = document.getElementById('imageModal');
+        const modalImg = document.getElementById('modalImage');
+        modal.classList.add('active');
+        modalImg.src = imageSrc;
+    }
+
+    function closeImageModal() {
+        const modal = document.getElementById('imageModal');
+        modal.classList.remove('active');
+    }
+
+    // Close modals when clicking outside
+    window.onclick = function(event) {
+        const editModal = document.getElementById('editModal');
+        const deleteModal = document.getElementById('deleteModal');
+        const imageModal = document.getElementById('imageModal');
+        
+        if (event.target == editModal) {
+            closeEditModal();
+        }
+        if (event.target == deleteModal) {
+            closeDeleteModal();
+        }
+        if (event.target == imageModal) {
+            closeImageModal();
+        }
+    }
+
+    // Close image modal with Escape key
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            closeImageModal();
+        }
     });
 </script>
 </body>
