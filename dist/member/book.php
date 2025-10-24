@@ -228,7 +228,7 @@ $pageHandler->processBooking();
 
             <div class="form-group">
                 <label for="notes">Additional Notes (Optional)</label>
-                <textarea id="notes" name="notes" placeholder="Any specific goals or requirements?"></textarea>
+                <textarea id="notes" name="notes" maxlength="100" placeholder="Any specific goals or requirements?"></textarea>
             </div>
 
             <button type="submit" name="submit" class="submit-btn">Confirm Booking</button>

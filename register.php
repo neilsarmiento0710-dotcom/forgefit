@@ -25,12 +25,14 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     $password = $_POST["password"] ?? "";
     $confirm_password = $_POST["confirm_password"] ?? "";
     $role = $_POST["role"] ?? "member";
+    $phone = trim($_POST["phone"] ?? "");
+    $address = trim($_POST["address"] ?? "");
 
     // Validation
-    if (empty($username) || empty($email) || empty($password) || empty($confirm_password)) {
+    if (empty($username) || empty($email) || empty($password) || empty($confirm_password) || empty($phone) || empty($address)) {
         $error = "All fields are required.";
-    } elseif (strlen($username) < 3) {
-        $error = "Username must be at least 3 characters.";
+    } elseif (strlen($username) > 8) {
+        $error = "Username must not exceed 8 characters.";
     } elseif (!preg_match('/^[a-zA-Z0-9_]+$/', $username)) {
         $error = "Username can only contain letters, numbers, and underscores.";
     } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
@@ -39,6 +41,10 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         $error = "Password must be at least 8 characters.";
     } elseif ($password !== $confirm_password) {
         $error = "Passwords do not match.";
+    } elseif (!preg_match('/^[0-9]{11}$/', $phone)) {
+        $error = "Phone number must be 11 digits (e.g., 09XXXXXXXXX).";
+    } elseif (strlen($address) < 5) {
+        $error = "Please enter a valid address.";
     } else {
         $conn = getDBConnection();
         
@@ -63,9 +69,13 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                 // Hash password
                 $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
                 
-                // Insert new user
-                $stmt = $conn->prepare("INSERT INTO users (username, email, password_hash, role) VALUES (?, ?, ?, ?)");
-                $stmt->bind_param("ssss", $username, $email, $hashedPassword, $role);
+                // Insert new user with phone and address
+            $stmt = $conn->prepare("
+                INSERT INTO users (username, email, password_hash, phone, address, role)
+                VALUES (?, ?, ?, ?, ?, ?)
+            ");
+            $stmt->bind_param("ssssss", $username, $email, $hashedPassword, $phone, $address, $role);
+
                 
                 if ($stmt->execute()) {
                     $success = "Registration successful! Redirecting to login...";
@@ -167,65 +177,92 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                 <?php endif; ?>
 
                 <form method="POST">
-                    <div class="form-group">
-                        <label for="username">Username</label>
-                        <input 
-                            id="username" 
-                            name="username" 
-                            type="text" 
-                            required 
-                            class="form-control"
-                            placeholder="Choose a username"
-                            minlength="3"
-                            pattern="[a-zA-Z0-9_]+"
-                            title="Only letters, numbers, and underscores allowed"
-                            value="<?= htmlspecialchars($_POST['username'] ?? '') ?>">
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="email">Email address</label>
-                        <input 
-                            id="email" 
-                            name="email" 
-                            type="email" 
-                            required 
-                            class="form-control"
-                            placeholder="you@example.com"
-                            value="<?= htmlspecialchars($_POST['email'] ?? '') ?>">
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="password">Password</label>
-                        <input 
-                            id="password" 
-                            name="password" 
-                            type="password" 
-                            required 
-                            class="form-control"
-                            placeholder="Minimum 8 characters"
-                            minlength="8">
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="confirm_password">Confirm Password</label>
-                        <input 
-                            id="confirm_password" 
-                            name="confirm_password" 
-                            type="password" 
-                            required 
-                            class="form-control"
-                            placeholder="Re-enter password"
-                            minlength="8">
-                    </div>
-                    
-                    <div class="btn-group">
-                        <button type="submit" class="btn btn-primary">Register</button>
-                        <a href="index.php" style="flex: 1; text-decoration: none;">
-                            <button type="button" class="btn btn-secondary" style="width: 100%;">Back to Home</button>
-                        </a>
-                    </div>
+        <div class="form-group">
+            <label for="username">Username</label>
+            <input 
+                id="username" 
+                name="username" 
+                type="text" 
+                required 
+                class="form-control"
+                placeholder="Choose a username (max 8 characters)"
+                maxlength="8"
+                pattern="[a-zA-Z0-9_]+"
+                title="Only letters, numbers, and underscores allowed"
+                value="<?= htmlspecialchars($_POST['username'] ?? '') ?>">
+        </div>
+        
+        <div class="form-group">
+            <label for="email">Email address</label>
+            <input 
+                id="email" 
+                name="email" 
+                type="email" 
+                required 
+                class="form-control"
+                placeholder="you@example.com"
+                value="<?= htmlspecialchars($_POST['email'] ?? '') ?>">
+        </div>
 
-                </form>
+        <div class="form-group">
+            <label for="phone">Phone Number</label>
+            <input 
+                id="phone" 
+                name="phone" 
+                type="tel" 
+                required 
+                class="form-control"
+                placeholder="09XXXXXXXXX"
+                pattern="[0-9]{11}"
+                title="Enter a valid 11-digit phone number (e.g., 09123456789)"
+                value="<?= htmlspecialchars($_POST['phone'] ?? '') ?>">
+        </div>
+
+        <div class="form-group">
+            <label for="address">Address</label>
+            <input 
+                id="address" 
+                name="address" 
+                type="text" 
+                required 
+                class="form-control"
+                placeholder="Enter your full address"
+                minlength="5"
+                value="<?= htmlspecialchars($_POST['address'] ?? '') ?>">
+        </div>
+        
+        <div class="form-group">
+            <label for="password">Password</label>
+            <input 
+                id="password" 
+                name="password" 
+                type="password" 
+                required 
+                class="form-control"
+                placeholder="Minimum 8 characters"
+                minlength="8">
+        </div>
+        
+        <div class="form-group">
+            <label for="confirm_password">Confirm Password</label>
+            <input 
+                id="confirm_password" 
+                name="confirm_password" 
+                type="password" 
+                required 
+                class="form-control"
+                placeholder="Re-enter password"
+                minlength="8">
+        </div>
+        
+        <div class="btn-group">
+            <button type="submit" class="btn btn-primary">Register</button>
+            <a href="index.php" style="flex: 1; text-decoration: none;">
+                <button type="button" class="btn btn-secondary" style="width: 100%;">Back to Home</button>
+            </a>
+        </div>
+    </form>
+
             </div>
                 <p style="text-align: center; margin-top: 15px;">
                         Already have an account?

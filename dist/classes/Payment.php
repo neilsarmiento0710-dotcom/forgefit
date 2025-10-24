@@ -1,4 +1,6 @@
 <?php
+require_once __DIR__ . '/MembershipPlan.php';
+
 /**
  * Payment Model Class
  * Handles all payment-related database operations
@@ -6,61 +8,27 @@
 class Payment {
     private $db;
     private $conn;
+    private $membershipPlan;
+
     
-    private $plans = [
-        'basic' => [
-            'price' => 1500.00,
-            'duration_months' => 1,
-            'features' => [
-                'Unlimited gym access',
-                'Access to all group classes',
-                'One free personal training session',
-                'Standard locker access'
-            ]
-        ],
-        'premium' => [
-            'price' => 3000.00,
-            'duration_months' => 3,
-            'features' => [
-                'Unlimited gym access',
-                'Priority booking for group classes',
-                'Three free personal training sessions',
-                'Premium locker and towel service',
-                'Exclusive training area access'
-            ]
-        ],
-        'annual' => [
-            'price' => 12000.00,
-            'duration_months' => 12,
-            'features' => [
-                'All Premium features',
-                'Five free personal training sessions',
-                'Exclusive ForgeFit Merchandise',
-                'Membership freeze option'
-            ]
-        ]
-    ];
-
     public function __construct() {
-        $this->db = Database::getInstance();
-        $this->conn = $this->db->getConnection();
-    }
+    $this->db = Database::getInstance();
+    $this->conn = $this->db->getConnection();
+    $this->membershipPlan = new MembershipPlan(); // ✅ connect to membership plans
+}
 
-    public function getAvailablePlans() {
-        return $this->plans;
-    }
 
-    private function getPlanDetails($plan_type) {
-        return $this->plans[$plan_type] ?? null;
-    }
 
     public function processPayment($user_id, $plan_type, $payment_method, $file_proof = null) {
-        $plan = $this->getPlanDetails($plan_type);
+        $plan = $this->membershipPlan->getPlanByType($plan_type);
         if (!$plan) {
             return ['success' => false, 'message' => 'Invalid plan type selected.'];
         }
 
+
         $amount = $plan['price'];
+        $duration_days = $plan['duration_days'];
+        $features = explode('|', $plan['features']); // optional
         $status = ($payment_method === 'cash') ? 'pending' : 'pending_proof';
         $payment_proof = null;
 
@@ -166,6 +134,10 @@ class Payment {
             $payments[] = $row;
         }
         return $payments;
+    }
+
+    public function getAvailablePlans() {
+        return $this->membershipPlan->getActivePlans();
     }
 
     public function getPaymentById($payment_id) {

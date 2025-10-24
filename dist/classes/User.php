@@ -81,77 +81,57 @@ class User {
 }
 
     
-    /**
-     * Create a new user
-     * @param array $data
-     * @return int|bool - Returns new user ID or false
-     */
-    public function createUser($data) {
-        $stmt = $this->conn->prepare(
-            "INSERT INTO users (username, email, password_hash, role, phone) VALUES (?, ?, ?, ?, ?)"
-        );
-        
-        $password_hash = password_hash($data['password'], PASSWORD_DEFAULT);
-        
-        $stmt->bind_param(
-            "sssss",
-            $data['username'],
-            $data['email'],
-            $password_hash,
-            $data['role'],
-            $data['phone']
-        );
-        
-        if ($stmt->execute()) {
-            return $this->conn->insert_id;
-        }
-        
-        return false;
+   public function createUser($data) {
+    $stmt = $this->conn->prepare(
+        "INSERT INTO users (username, email, password_hash, role, phone, address, specialty) 
+         VALUES (?, ?, ?, ?, ?, ?, ?)"
+    );
+
+    $password_hash = password_hash($data['password'], PASSWORD_DEFAULT);
+
+    $stmt->bind_param(
+        "sssssss",
+        $data['username'],
+        $data['email'],
+        $password_hash,
+        $data['role'],
+        $data['phone'],
+        $data['address'] ?? '',
+        $data['specialty'] ?? ''
+    );
+
+    if ($stmt->execute()) {
+        return $this->conn->insert_id;
     }
-    
-    /**
-     * Update user information
-     * @param int $user_id
-     * @param array $data
-     * @return bool
-     */
-    public function updateUser($user_id, $data) {
-        $fields = [];
-        $types = "";
-        $values = [];
-        
-        if (isset($data['username'])) {
-            $fields[] = "username = ?";
-            $types .= "s";
-            $values[] = $data['username'];
-        }
-        
-        if (isset($data['email'])) {
-            $fields[] = "email = ?";
-            $types .= "s";
-            $values[] = $data['email'];
-        }
-        
-        if (isset($data['phone'])) {
-            $fields[] = "phone = ?";
-            $types .= "s";
-            $values[] = $data['phone'];
-        }
-        
-        if (empty($fields)) {
-            return false;
-        }
-        
-        $values[] = $user_id;
-        $types .= "i";
-        
-        $sql = "UPDATE users SET " . implode(", ", $fields) . " WHERE id = ?";
-        $stmt = $this->conn->prepare($sql);
-        $stmt->bind_param($types, ...$values);
-        
-        return $stmt->execute();
-    }
-    
+
+    return false;
+}
+
+public function updateUser($id, $data) {
+    $fields = [];
+    $params = [];
+    $types = '';
+
+    // dynamic binding
+    if (isset($data['username'])) { $fields[] = "username=?"; $params[] = $data['username']; $types .= 's'; }
+    if (isset($data['email'])) { $fields[] = "email=?"; $params[] = $data['email']; $types .= 's'; }
+    if (isset($data['phone'])) { $fields[] = "phone=?"; $params[] = $data['phone']; $types .= 's'; }
+    if (isset($data['address'])) { $fields[] = "address=?"; $params[] = $data['address']; $types .= 's'; }
+    if (isset($data['role'])) { $fields[] = "role=?"; $params[] = $data['role']; $types .= 's'; }
+    if (isset($data['status'])) { $fields[] = "status=?"; $params[] = $data['status']; $types .= 's'; }
+    if (isset($data['specialty'])) { $fields[] = "specialty=?"; $params[] = $data['specialty']; $types .= 's'; }
+    if (isset($data['password'])) { $fields[] = "password_hash=?"; $params[] = $data['password']; $types .= 's'; }
+
+    if (empty($fields)) return false;
+
+    $query = "UPDATE users SET " . implode(", ", $fields) . " WHERE id=?";
+    $stmt = $this->conn->prepare($query);
+    $params[] = $id;
+    $types .= 'i';
+
+    $stmt->bind_param($types, ...$params);
+    return $stmt->execute();
+}
     /**
      * Delete user
      * @param int $user_id

@@ -29,10 +29,6 @@ $membershipModel = new Membership();
 if (isset($_POST['delete_user_id'])) {
     $user_id = intval($_POST['delete_user_id']);
     
-    // Delete related records first
-    // Note: Add deleteByUserId methods to Booking, Payment, Membership models
-    // For now, we'll use direct queries or you can add these methods
-    
     if ($userModel->deleteUser($user_id)) {
         $_SESSION['success_message'] = "✅ User deleted successfully!";
     } else {
@@ -45,30 +41,55 @@ if (isset($_POST['delete_user_id'])) {
 // === UPDATE USER ===
 if (isset($_POST['update_user'])) {
     $user_id = intval($_POST['user_id']);
-    
+
     $data = [
-        'username' => $_POST['username'],
-        'email' => $_POST['email'],
-        'phone' => $_POST['phone']
+        'username' => trim($_POST['username']),
+        'email' => trim($_POST['email']),
+        'phone' => trim($_POST['phone']),
+        'address' => trim($_POST['address'] ?? ''),
+        'role' => $_POST['role'],
+        'status' => $_POST['status'],
+        'specialty' => trim($_POST['specialty'] ?? '')
     ];
-    
+
+    // Only update password if not empty
+    if (!empty($_POST['password'])) {
+        $data['password'] = password_hash($_POST['password'], PASSWORD_DEFAULT);
+    }
+
     if ($userModel->updateUser($user_id, $data)) {
         $_SESSION['success_message'] = "✅ User updated successfully!";
     } else {
         $_SESSION['error_message'] = "❌ Failed to update user.";
     }
-    header("Location: users.php");
+    
+    // Preserve pagination and tab state
+    $redirect_params = [];
+    if (isset($_GET['members_page'])) {
+        $redirect_params[] = 'members_page=' . $_GET['members_page'];
+    }
+    if (isset($_GET['trainers_page'])) {
+        $redirect_params[] = 'trainers_page=' . $_GET['trainers_page'];
+    }
+    if (isset($_GET['tab'])) {
+        $redirect_params[] = 'tab=' . $_GET['tab'];
+    }
+    
+    $redirect_url = 'users.php' . (!empty($redirect_params) ? '?' . implode('&', $redirect_params) : '');
+    header("Location: " . $redirect_url);
     exit();
 }
 
 // === ADD NEW USER ===
 if (isset($_POST['add_user'])) {
     $data = [
-        'username' => $_POST['username'],
-        'email' => $_POST['email'],
+        'username' => trim($_POST['username']),
+        'email' => trim($_POST['email']),
         'password' => $_POST['password'],
-        'phone' => $_POST['phone'],
-        'role' => $_POST['role']
+        'phone' => trim($_POST['phone']),
+        'role' => $_POST['role'],
+        'address' => trim($_POST['address'] ?? ''),
+        'specialty' => trim($_POST['specialty'] ?? '')
     ];
     
     if ($userModel->createUser($data)) {
@@ -79,6 +100,9 @@ if (isset($_POST['add_user'])) {
     header("Location: users.php");
     exit();
 }
+
+// Determine active tab
+$active_tab = isset($_GET['tab']) ? $_GET['tab'] : 'members';
 
 // Pagination setup
 $records_per_page = 10;
@@ -94,7 +118,6 @@ $all_members = $userModel->getUsersByRole('member');
 $total_members = count($all_members);
 $members = array_slice($all_members, $members_offset, $records_per_page);
 
-
 // Fetch trainers (paginated)
 $all_trainers = $userModel->getUsersByRole('trainer');
 $total_trainers = count($all_trainers);
@@ -103,7 +126,18 @@ $trainers = array_slice($all_trainers, $trainers_offset, $records_per_page);
 $total_members_pages = max(1, ceil($total_members / $records_per_page));
 $total_trainers_pages = max(1, ceil($total_trainers / $records_per_page));
 
-
+// Build pagination URLs
+function buildPaginationUrl($page, $type) {
+    $params = $_GET;
+    if ($type === 'members') {
+        $params['members_page'] = $page;
+        $params['tab'] = 'members';
+    } else {
+        $params['trainers_page'] = $page;
+        $params['tab'] = 'trainers';
+    }
+    return 'users.php?' . http_build_query($params);
+}
 ?>
 <!doctype html>
 <html lang="en">
@@ -137,7 +171,11 @@ $total_trainers_pages = max(1, ceil($total_trainers / $records_per_page));
             color: #cbd5e1;
             text-align: center;
         }
-        .tabs { display: flex; gap: 10px; margin: 20px 0; }
+        .tabs { 
+            display: flex; 
+            gap: 10px; 
+            margin: 20px 0; 
+        }
         .tab {
             padding: 8px 16px;
             border-radius: 8px;
@@ -147,11 +185,16 @@ $total_trainers_pages = max(1, ceil($total_trainers / $records_per_page));
             font-weight: 600;
             transition: 0.3s;
             border: 1px solid #0f172a;
+            text-decoration: none;
+            display: inline-block;
         }
         .tab.active {
             background: #ffffff;
             color: #0f172a;
             box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .tab:hover {
+            opacity: 0.8;
         }
         tr:hover { background: #1e293b; }
         
@@ -250,6 +293,7 @@ $total_trainers_pages = max(1, ceil($total_trainers / $records_per_page));
             background: #0f172a;
             color: #e2e8f0;
             font-family: 'Montserrat', sans-serif;
+            box-sizing: border-box;
         }
         .form-group textarea {
             resize: vertical;
@@ -306,7 +350,7 @@ $total_trainers_pages = max(1, ceil($total_trainers / $records_per_page));
             color: #991b1b;
         }
 
-                .pagination {
+        .pagination {
             display: flex;
             justify-content: center;
             align-items: center;
@@ -333,6 +377,7 @@ $total_trainers_pages = max(1, ceil($total_trainers / $records_per_page));
         .pagination .disabled {
             opacity: 0.5;
             cursor: not-allowed;
+            pointer-events: none;
         }
 
         .logo-two {
@@ -372,20 +417,20 @@ $total_trainers_pages = max(1, ceil($total_trainers / $records_per_page));
     </div>
 
     <?php if (isset($_SESSION['success_message'])): ?>
-        <div class="message-box success"><?php echo $_SESSION['success_message']; unset($_SESSION['success_message']); ?></div>
+        <div class="message-box success"><?php echo htmlspecialchars($_SESSION['success_message']); unset($_SESSION['success_message']); ?></div>
     <?php elseif (isset($_SESSION['error_message'])): ?>
-        <div class="message-box error"><?php echo $_SESSION['error_message']; unset($_SESSION['error_message']); ?></div>
+        <div class="message-box error"><?php echo htmlspecialchars($_SESSION['error_message']); unset($_SESSION['error_message']); ?></div>
     <?php endif; ?>
 
     <button class="add-user-btn" onclick="openAddUserModal()">➕ Add New User</button>
 
     <div class="tabs">
-        <div class="tab active" data-filter="members">Members</div>
-        <div class="tab" data-filter="trainers">Trainers</div>
+        <a href="?tab=members&members_page=<?php echo $members_page; ?>" class="tab <?php echo $active_tab === 'members' ? 'active' : ''; ?>">Members (<?php echo $total_members; ?>)</a>
+        <a href="?tab=trainers&trainers_page=<?php echo $trainers_page; ?>" class="tab <?php echo $active_tab === 'trainers' ? 'active' : ''; ?>">Trainers (<?php echo $total_trainers; ?>)</a>
     </div>
 
     <!-- Members Table -->
-    <div class="table-container" id="members-table">
+    <div class="table-container" id="members-table" style="display: <?php echo $active_tab === 'members' ? 'block' : 'none'; ?>;">
         <table class="modern-table">
             <thead>
                 <tr>
@@ -404,14 +449,14 @@ $total_trainers_pages = max(1, ceil($total_trainers / $records_per_page));
                 <?php if (!empty($members)): ?>
                     <?php foreach ($members as $member): ?>
                         <tr>
-                            <td><?php echo $member['id']; ?></td>
+                            <td><?php echo htmlspecialchars($member['id']); ?></td>
                             <td><?php echo htmlspecialchars($member['username']); ?></td>
                             <td><?php echo htmlspecialchars($member['email']); ?></td>
                             <td><?php echo htmlspecialchars($member['phone'] ?? '—'); ?></td>
                             <td><?php echo htmlspecialchars($member['address'] ?? '—'); ?></td>
                             <td>
-                                <span class="status-badge status-<?php echo $member['status']; ?>">
-                                    <?php echo ucfirst($member['status']); ?>
+                                <span class="status-badge status-<?php echo htmlspecialchars($member['status']); ?>">
+                                    <?php echo ucfirst(htmlspecialchars($member['status'])); ?>
                                 </span>
                             </td>
                             <td>
@@ -421,12 +466,11 @@ $total_trainers_pages = max(1, ceil($total_trainers / $records_per_page));
                                         $status = $membership['status'];
                                         $end_date = $membership['end_date'];
                                         
-                                        // Check if membership is expired
                                         if ($status === 'active' && strtotime($end_date) < time()) {
                                             echo '<span style="color:#f59e0b;">Expired</span>';
                                         } else {
                                             $color = ($status === 'active') ? '#16a34a' : '#f59e0b';
-                                            echo '<span style="color:' . $color . ';">' . ucfirst($status) . '</span>';
+                                            echo '<span style="color:' . $color . ';">' . ucfirst(htmlspecialchars($status)) . '</span>';
                                         }
                                     } else {
                                         echo '<span style="color:#64748b;">None</span>';
@@ -436,7 +480,7 @@ $total_trainers_pages = max(1, ceil($total_trainers / $records_per_page));
                             <td><?php echo date('M d, Y', strtotime($member['created_at'])); ?></td>
                             <td>
                                 <button class="action-btn edit-btn" onclick='openEditModal(<?php echo json_encode($member); ?>, "member")'>Edit</button>
-                                <button class="action-btn delete-btn" onclick="confirmDelete(<?php echo $member['id']; ?>, '<?php echo htmlspecialchars($member['username']); ?>')">Delete</button>
+                                <button class="action-btn delete-btn" onclick="confirmDelete(<?php echo $member['id']; ?>, '<?php echo htmlspecialchars(addslashes($member['username'])); ?>')">Delete</button>
                             </td>
                         </tr>
                     <?php endforeach; ?>
@@ -446,32 +490,50 @@ $total_trainers_pages = max(1, ceil($total_trainers / $records_per_page));
             </tbody>
         </table>
         <?php if ($total_members_pages > 1): ?>
-        <div class="pagination">
-            <?php if ($members_page > 1): ?>
-                <a href="?members_page=<?php echo $members_page - 1; ?>">&laquo; Prev</a>
-            <?php else: ?>
-                <span class="disabled">&laquo; Prev</span>
-            <?php endif; ?>
-
-            <?php for ($i = 1; $i <= $total_members_pages; $i++): ?>
-                <?php if ($i == $members_page): ?>
-                    <span class="active"><?php echo $i; ?></span>
+            <div class="pagination">
+                <?php if ($members_page > 1): ?>
+                    <a href="<?php echo buildPaginationUrl($members_page - 1, 'members'); ?>">&laquo; Prev</a>
                 <?php else: ?>
-                    <a href="?members_page=<?php echo $i; ?>"><?php echo $i; ?></a>
+                    <span class="disabled">&laquo; Prev</span>
                 <?php endif; ?>
-            <?php endfor; ?>
 
-            <?php if ($members_page < $total_members_pages): ?>
-                <a href="?members_page=<?php echo $members_page + 1; ?>">Next &raquo;</a>
-            <?php else: ?>
-                <span class="disabled">Next &raquo;</span>
-            <?php endif; ?>
-        </div>
+                <?php 
+                $start_page = max(1, $members_page - 2);
+                $end_page = min($total_members_pages, $members_page + 2);
+                
+                if ($start_page > 1): ?>
+                    <a href="<?php echo buildPaginationUrl(1, 'members'); ?>">1</a>
+                    <?php if ($start_page > 2): ?>
+                        <span>...</span>
+                    <?php endif; ?>
+                <?php endif; ?>
+
+                <?php for ($i = $start_page; $i <= $end_page; $i++): ?>
+                    <?php if ($i == $members_page): ?>
+                        <span class="active"><?php echo $i; ?></span>
+                    <?php else: ?>
+                        <a href="<?php echo buildPaginationUrl($i, 'members'); ?>"><?php echo $i; ?></a>
+                    <?php endif; ?>
+                <?php endfor; ?>
+
+                <?php if ($end_page < $total_members_pages): ?>
+                    <?php if ($end_page < $total_members_pages - 1): ?>
+                        <span>...</span>
+                    <?php endif; ?>
+                    <a href="<?php echo buildPaginationUrl($total_members_pages, 'members'); ?>"><?php echo $total_members_pages; ?></a>
+                <?php endif; ?>
+
+                <?php if ($members_page < $total_members_pages): ?>
+                    <a href="<?php echo buildPaginationUrl($members_page + 1, 'members'); ?>">Next &raquo;</a>
+                <?php else: ?>
+                    <span class="disabled">Next &raquo;</span>
+                <?php endif; ?>
+            </div>
         <?php endif; ?>
     </div>
 
     <!-- Trainers Table -->
-    <div class="table-container" id="trainers-table" style="display:none;">
+    <div class="table-container" id="trainers-table" style="display: <?php echo $active_tab === 'trainers' ? 'block' : 'none'; ?>;">
         <table class="modern-table">
             <thead>
                 <tr>
@@ -489,20 +551,20 @@ $total_trainers_pages = max(1, ceil($total_trainers / $records_per_page));
                 <?php if (!empty($trainers)): ?>
                     <?php foreach ($trainers as $trainer): ?>
                         <tr>
-                            <td><?php echo $trainer['id']; ?></td>
+                            <td><?php echo htmlspecialchars($trainer['id']); ?></td>
                             <td><?php echo htmlspecialchars($trainer['username']); ?></td>
                             <td><?php echo htmlspecialchars($trainer['email']); ?></td>
                             <td><?php echo htmlspecialchars($trainer['phone'] ?? '—'); ?></td>
                             <td><?php echo htmlspecialchars($trainer['specialty'] ?? '—'); ?></td>
                             <td>
-                                <span class="status-badge status-<?php echo $trainer['status']; ?>">
-                                    <?php echo ucfirst($trainer['status']); ?>
+                                <span class="status-badge status-<?php echo htmlspecialchars($trainer['status']); ?>">
+                                    <?php echo ucfirst(htmlspecialchars($trainer['status'])); ?>
                                 </span>
                             </td>
                             <td><?php echo date('M d, Y', strtotime($trainer['created_at'])); ?></td>
                             <td>
                                 <button class="action-btn edit-btn" onclick='openEditModal(<?php echo json_encode($trainer); ?>, "trainer")'>Edit</button>
-                                <button class="action-btn delete-btn" onclick="confirmDelete(<?php echo $trainer['id']; ?>, '<?php echo htmlspecialchars($trainer['username']); ?>')">Delete</button>
+                                <button class="action-btn delete-btn" onclick="confirmDelete(<?php echo $trainer['id']; ?>, '<?php echo htmlspecialchars(addslashes($trainer['username'])); ?>')">Delete</button>
                             </td>
                         </tr>
                     <?php endforeach; ?>
@@ -512,29 +574,46 @@ $total_trainers_pages = max(1, ceil($total_trainers / $records_per_page));
             </tbody>
         </table>
         <?php if ($total_trainers_pages > 1): ?>
-        <div class="pagination">
-            <?php if ($trainers_page > 1): ?>
-                <a href="?trainers_page=<?php echo $trainers_page - 1; ?>">&laquo; Prev</a>
-            <?php else: ?>
-                <span class="disabled">&laquo; Prev</span>
-            <?php endif; ?>
-
-            <?php for ($i = 1; $i <= $total_trainers_pages; $i++): ?>
-                <?php if ($i == $trainers_page): ?>
-                    <span class="active"><?php echo $i; ?></span>
+            <div class="pagination">
+                <?php if ($trainers_page > 1): ?>
+                    <a href="<?php echo buildPaginationUrl($trainers_page - 1, 'trainers'); ?>">&laquo; Prev</a>
                 <?php else: ?>
-                    <a href="?trainers_page=<?php echo $i; ?>"><?php echo $i; ?></a>
+                    <span class="disabled">&laquo; Prev</span>
                 <?php endif; ?>
-            <?php endfor; ?>
 
-            <?php if ($trainers_page < $total_trainers_pages): ?>
-                <a href="?trainers_page=<?php echo $trainers_page + 1; ?>">Next &raquo;</a>
-            <?php else: ?>
-                <span class="disabled">Next &raquo;</span>
-            <?php endif; ?>
-        </div>
+                <?php 
+                $start_page = max(1, $trainers_page - 2);
+                $end_page = min($total_trainers_pages, $trainers_page + 2);
+                
+                if ($start_page > 1): ?>
+                    <a href="<?php echo buildPaginationUrl(1, 'trainers'); ?>">1</a>
+                    <?php if ($start_page > 2): ?>
+                        <span>...</span>
+                    <?php endif; ?>
+                <?php endif; ?>
+
+                <?php for ($i = $start_page; $i <= $end_page; $i++): ?>
+                    <?php if ($i == $trainers_page): ?>
+                        <span class="active"><?php echo $i; ?></span>
+                    <?php else: ?>
+                        <a href="<?php echo buildPaginationUrl($i, 'trainers'); ?>"><?php echo $i; ?></a>
+                    <?php endif; ?>
+                <?php endfor; ?>
+
+                <?php if ($end_page < $total_trainers_pages): ?>
+                    <?php if ($end_page < $total_trainers_pages - 1): ?>
+                        <span>...</span>
+                    <?php endif; ?>
+                    <a href="<?php echo buildPaginationUrl($total_trainers_pages, 'trainers'); ?>"><?php echo $total_trainers_pages; ?></a>
+                <?php endif; ?>
+
+                <?php if ($trainers_page < $total_trainers_pages): ?>
+                    <a href="<?php echo buildPaginationUrl($trainers_page + 1, 'trainers'); ?>">Next &raquo;</a>
+                <?php else: ?>
+                    <span class="disabled">Next &raquo;</span>
+                <?php endif; ?>
+            </div>
         <?php endif; ?>
-
     </div>
 </main>
 
@@ -543,12 +622,13 @@ $total_trainers_pages = max(1, ceil($total_trainers / $records_per_page));
     <div class="modal-content">
         <span class="modal-close" onclick="closeEditModal()">&times;</span>
         <h2 style="margin-top:0;">✏️ Edit User</h2>
-        <form method="POST" action="">
+        <form method="POST" action="<?php echo htmlspecialchars($_SERVER['REQUEST_URI']); ?>">
             <input type="hidden" name="user_id" id="edit_user_id">
             
             <div class="form-group">
                 <label>Username</label>
-                <input type="text" name="username" id="edit_username" required>
+                <input type="text" name="username" id="edit_username" required minlength="3" maxlength="20"
+                       pattern="[a-zA-Z0-9_]+" title="Only letters, numbers, and underscores allowed.">
             </div>
             
             <div class="form-group">
@@ -558,19 +638,29 @@ $total_trainers_pages = max(1, ceil($total_trainers / $records_per_page));
             
             <div class="form-group">
                 <label>Phone</label>
-                <input type="text" name="phone" id="edit_phone">
+                <input type="text" name="phone" id="edit_phone" pattern="[0-9]{10,11}" maxlength="11"
+                       title="Phone number must be 10-11 digits.">
             </div>
             
-            <div class="form-group" id="address_group">
+            <div class="form-group" id="edit_address_group">
                 <label>Address</label>
-                <textarea name="address" id="edit_address"></textarea>
+                <textarea name="address" id="edit_address" placeholder="Enter full address"></textarea>
+            </div>
+
+            <div class="form-group" id="edit_specialty_group" style="display:none;">
+                <label>Specialty (Trainers only)</label>
+                <input type="text" name="specialty" id="edit_specialty" maxlength="100">
             </div>
             
-            <div class="form-group" id="specialty_group" style="display:none;">
-                <label>Specialty</label>
-                <input type="text" name="specialty" id="edit_specialty">
+            <div class="form-group">
+                <label>Role</label>
+                <select name="role" id="edit_role" onchange="toggleEditRoleFields()">
+                    <option value="member">Member</option>
+                    <option value="trainer">Trainer</option>
+                    <option value="management">Management</option>
+                </select>
             </div>
-            
+
             <div class="form-group">
                 <label>Status</label>
                 <select name="status" id="edit_status">
@@ -579,7 +669,12 @@ $total_trainers_pages = max(1, ceil($total_trainers / $records_per_page));
                 </select>
             </div>
             
-            <button type="submit" name="update_user" class="submit-btn">Update User</button>
+            <div class="form-group">
+                <label>Change Password (optional)</label>
+                <input type="password" name="password" id="edit_password" placeholder="Leave blank to keep current password" minlength="8">
+            </div>
+
+            <button type="submit" name="update_user" class="submit-btn">💾 Save Changes</button>
         </form>
     </div>
 </div>
@@ -592,15 +687,17 @@ $total_trainers_pages = max(1, ceil($total_trainers / $records_per_page));
         <form method="POST" action="">
             <div class="form-group">
                 <label>Role</label>
-                <select name="role" id="add_role" required onchange="toggleSpecialtyField()">
+                <select name="role" id="add_role" required onchange="toggleAddRoleFields()">
                     <option value="member">Member</option>
                     <option value="trainer">Trainer</option>
+                    <option value="management">Management</option>
                 </select>
             </div>
             
             <div class="form-group">
                 <label>Username</label>
-                <input type="text" name="username" required>
+                <input type="text" name="username" required minlength="3" maxlength="20"
+                       pattern="[a-zA-Z0-9_]+" title="Only letters, numbers, and underscores allowed.">
             </div>
             
             <div class="form-group">
@@ -610,25 +707,26 @@ $total_trainers_pages = max(1, ceil($total_trainers / $records_per_page));
             
             <div class="form-group">
                 <label>Password</label>
-                <input type="password" name="password" required minlength="6">
+                <input type="password" name="password" required minlength="8">
             </div>
             
             <div class="form-group">
                 <label>Phone</label>
-                <input type="text" name="phone">
+                <input type="text" name="phone" pattern="[0-9]{10,11}" maxlength="11"
+                       title="Phone number must be 10-11 digits.">
             </div>
             
-            <div class="form-group">
+            <div class="form-group" id="add_address_group">
                 <label>Address</label>
                 <textarea name="address"></textarea>
             </div>
             
             <div class="form-group" id="add_specialty_group" style="display:none;">
                 <label>Specialty</label>
-                <input type="text" name="specialty">
+                <input type="text" name="specialty" maxlength="100">
             </div>
             
-            <button type="submit" name="add_user" class="submit-btn">Add User</button>
+            <button type="submit" name="add_user" class="submit-btn">➕ Add User</button>
         </form>
     </div>
 </div>
@@ -645,45 +743,34 @@ $total_trainers_pages = max(1, ceil($total_trainers / $records_per_page));
 </footer>
 
 <script>
-    // Switch between members and trainers tables
-    const tabs = document.querySelectorAll('.tab');
-    const membersTable = document.getElementById('members-table');
-    const trainersTable = document.getElementById('trainers-table');
-
-    tabs.forEach(tab => {
-        tab.addEventListener('click', () => {
-            tabs.forEach(t => t.classList.remove('active'));
-            tab.classList.add('active');
-
-            if (tab.dataset.filter === 'trainers') {
-                membersTable.style.display = 'none';
-                trainersTable.style.display = 'block';
-            } else {
-                membersTable.style.display = 'block';
-                trainersTable.style.display = 'none';
-            }
-        });
-    });
-
-    // Edit Modal Functions
     function openEditModal(user, type) {
-        document.getElementById('editModal').classList.add('active');
+        const modal = document.getElementById('editModal');
+        modal.classList.add('active');
+
         document.getElementById('edit_user_id').value = user.id;
         document.getElementById('edit_username').value = user.username;
         document.getElementById('edit_email').value = user.email;
         document.getElementById('edit_phone').value = user.phone || '';
+        document.getElementById('edit_address').value = user.address || '';
+        document.getElementById('edit_specialty').value = user.specialty || '';
+        document.getElementById('edit_role').value = user.role;
         document.getElementById('edit_status').value = user.status;
-        
-        if (type === 'trainer') {
-            document.getElementById('address_group').style.display = 'none';
-            document.getElementById('specialty_group').style.display = 'block';
-            document.getElementById('edit_specialty').value = user.specialty || '';
-            document.getElementById('edit_address').value = '';
+        document.getElementById('edit_password').value = '';
+
+        toggleEditRoleFields();
+    }
+
+    function toggleEditRoleFields() {
+        const role = document.getElementById('edit_role').value;
+        const specialtyGroup = document.getElementById('edit_specialty_group');
+        const addressGroup = document.getElementById('edit_address_group');
+
+        if (role === 'trainer') {
+            specialtyGroup.style.display = 'block';
+            addressGroup.style.display = 'none';
         } else {
-            document.getElementById('address_group').style.display = 'block';
-            document.getElementById('specialty_group').style.display = 'none';
-            document.getElementById('edit_address').value = user.address || '';
-            document.getElementById('edit_specialty').value = '';
+            specialtyGroup.style.display = 'none';
+            addressGroup.style.display = 'block';
         }
     }
 
@@ -691,27 +778,29 @@ $total_trainers_pages = max(1, ceil($total_trainers / $records_per_page));
         document.getElementById('editModal').classList.remove('active');
     }
 
-    // Add Modal Functions
     function openAddUserModal() {
         document.getElementById('addModal').classList.add('active');
+        toggleAddRoleFields();
     }
 
     function closeAddModal() {
         document.getElementById('addModal').classList.remove('active');
     }
 
-    function toggleSpecialtyField() {
+    function toggleAddRoleFields() {
         const role = document.getElementById('add_role').value;
         const specialtyGroup = document.getElementById('add_specialty_group');
+        const addressGroup = document.getElementById('add_address_group');
         
         if (role === 'trainer') {
             specialtyGroup.style.display = 'block';
+            addressGroup.style.display = 'none';
         } else {
             specialtyGroup.style.display = 'none';
+            addressGroup.style.display = 'block';
         }
     }
 
-    // Delete Confirmation
     function confirmDelete(userId, username) {
         if (confirm(`Are you sure you want to delete user "${username}"?\n\nThis will also delete all their bookings, payments, and memberships. This action cannot be undone!`)) {
             document.getElementById('delete_user_id').value = userId;
@@ -731,6 +820,14 @@ $total_trainers_pages = max(1, ceil($total_trainers / $records_per_page));
             closeAddModal();
         }
     }
+
+    // Close modal on Escape key
+    document.addEventListener('keydown', function(event) {
+        if (event.key === 'Escape') {
+            closeEditModal();
+            closeAddModal();
+        }
+    });
 </script>
 </body>
 </html>

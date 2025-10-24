@@ -6,6 +6,7 @@ ini_set('display_errors', 1);
 
 require_once '../database/db.php';
 require_once '../classes/Membership.php';
+require_once '../classes/MembershipPlan.php';
 require_once '../classes/Payment.php';
 
 if (!isset($_SESSION['user']) || !isset($_SESSION['user']['id'])) {
@@ -17,22 +18,21 @@ $user_id = $_SESSION['user']['id'];
 $user_name = $_SESSION['user']['username'];
 
 $membership = new Membership();
+$membershipPlan = new MembershipPlan();
 $payment = new Payment();
 
-// 🧩 Step 1: Sync inactive memberships based on pending payments
-// This will mark expired memberships as 'inactive'
+// Step 1: Sync inactive memberships
 $membership->syncInactiveMemberships($user_id);
 
-// 🧩 Step 2: Get current active membership
+// Step 2: Get current active membership
 $current_membership = $membership->getUserActiveMembership($user_id);
 
-// 🧩 Step 3: Handle payment submission
+// Step 3: Handle payment submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['purchase_membership'])) {
     try {
         $plan_type = $_POST['plan_type'];
         $payment_method = $_POST['payment_method'];
 
-        // The processPayment method now correctly handles file upload and returns success/error.
         $payment_result = $payment->processPayment($user_id, $plan_type, $payment_method, $_FILES['payment_proof'] ?? null);
 
         if ($payment_result['success']) {
@@ -43,13 +43,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['purchase_membership']
             $error_message = $payment_result['message'];
         }
     } catch (Exception $e) {
-        // Log the exception for debugging
         error_log("Payment Error: " . $e->getMessage());
         $error_message = "Unexpected error during payment: " . $e->getMessage();
     }
 }
 
-// 🧩 Step 4: Fetch payment history
+// Step 4: Fetch payment history
 $payment_history = $payment->getUserPaymentHistory($user_id);
 ?>
 <!DOCTYPE html>
@@ -122,16 +121,18 @@ $payment_history = $payment->getUserPaymentHistory($user_id);
         <?php endif; ?>
 
         <div class="pricing-grid">
-            <?php foreach ($payment->getAvailablePlans() as $key => $plan): ?>
-                <div class="pricing-card <?= $key === 'premium' ? 'featured' : '' ?>">
-                    <h3><?= ucfirst($key) ?></h3>
-                    <div class="price">₱<?= $plan['price'] ?><span>/mo</span></div>
+            <?php foreach ($membershipPlan->getActivePlans() as $plan): ?>
+                <div class="pricing-card <?= !empty($plan['is_featured']) ? 'featured' : '' ?>">
+                    <h3><?= htmlspecialchars($plan['plan_name']); ?></h3>
+                    <div class="price">₱<?= number_format($plan['price'], 2); ?><span>/mo</span></div>
                     <ul class="pricing-features">
-                        <?php foreach ($plan['features'] as $feature): ?>
-                            <li>✓ <?= $feature ?></li>
+                        <?php foreach (explode('|', $plan['features']) as $feature): ?>
+                            <li>✓ <?= htmlspecialchars($feature); ?></li>
                         <?php endforeach; ?>
                     </ul>
-                    <button class="select-plan-btn" onclick="openPaymentModal('<?= $key ?>', <?= $plan['price'] ?>, '<?= ucfirst($key) ?> Plan')">
+                    <button 
+                        class="select-plan-btn" 
+                        onclick="openPaymentModal('<?= $plan['plan_type']; ?>', <?= $plan['price']; ?>, '<?= htmlspecialchars($plan['plan_name']); ?>')">
                         Select Plan
                     </button>
                 </div>
@@ -141,7 +142,7 @@ $payment_history = $payment->getUserPaymentHistory($user_id);
         <?php if (!empty($payment_history)): ?>
             <div class="payment-history">
                 <h3>💳 Payment History</h3>
-                <?php foreach ($payment_history as $payment_item): // Renamed variable to avoid conflict ?>
+                <?php foreach ($payment_history as $payment_item): ?>
                     <div class="payment-item">
                         <div>
                             <strong><?= ucfirst($payment_item['plan_type']); ?> Plan</strong><br>
@@ -159,7 +160,7 @@ $payment_history = $payment->getUserPaymentHistory($user_id);
         <?php endif; ?>
     </main>
 
-
+    <!-- PAYMENT MODAL -->
     <div id="paymentModal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
@@ -238,33 +239,23 @@ $payment_history = $payment->getUserPaymentHistory($user_id);
             document.getElementById('plan_type').value = planType;
             document.getElementById('plan_name').value = planName;
             document.getElementById('plan_amount').value = '₱' + amount.toLocaleString();
-            
-            // Reset form elements
             document.getElementById('payment_method').value = '';
             document.getElementById('file-name').textContent = '';
             paymentProofInput.value = '';
             proofUploadGroup.style.display = 'none';
             paymentInstructions.style.display = 'none';
-            paymentProofInput.removeAttribute('required'); // Unset required initially
-
             paymentModal.classList.add('active');
         }
 
         function closePaymentModal() {
             paymentModal.classList.remove('active');
         }
-        
+
         function togglePaymentProof(method) {
             if (method === 'gcash' || method === 'bank_transfer') {
                 proofUploadGroup.style.display = 'block';
                 paymentInstructions.style.display = 'block';
                 paymentProofInput.setAttribute('required', 'required');
-            } else if (method === 'cash') {
-                proofUploadGroup.style.display = 'none';
-                paymentInstructions.style.display = 'none';
-                paymentProofInput.removeAttribute('required');
-                document.getElementById('file-name').textContent = '';
-                paymentProofInput.value = '';
             } else {
                 proofUploadGroup.style.display = 'none';
                 paymentInstructions.style.display = 'none';
@@ -282,21 +273,15 @@ $payment_history = $payment->getUserPaymentHistory($user_id);
             }
         }
 
-        // Close modal when clicking outside
-        paymentModal.addEventListener('click', function(e) {
-            if (e.target === this) {
-                closePaymentModal();
-            }
+        paymentModal.addEventListener('click', e => {
+            if (e.target === paymentModal) closePaymentModal();
         });
 
-        // Header scroll effect
-        window.addEventListener('scroll', function() {
+        window.addEventListener('scroll', () => {
             const header = document.querySelector('header');
-            if (window.scrollY > 50) {
-                header.style.background = 'linear-gradient(135deg, rgba(15, 23, 42, 0.98) 0%, rgba(30, 41, 59, 0.98) 100%)';
-            } else {
-                header.style.background = 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)';
-            }
+            header.style.background = window.scrollY > 50
+                ? 'linear-gradient(135deg, rgba(15,23,42,0.98) 0%, rgba(30,41,59,0.98) 100%)'
+                : 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)';
         });
     </script>
 </body>

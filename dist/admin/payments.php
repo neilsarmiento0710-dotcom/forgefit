@@ -141,52 +141,61 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_payment'])) {
 // === Approve Payment (Quick Action) ===
 if (isset($_POST['approve_id'])) {
     $payment_id = intval($_POST['approve_id']);
-    
+    $admin_id = $_SESSION['user']['id']; // management user ID
+
     $conn->begin_transaction();
-    
+
     try {
+        // Get payment info
         $get_info_sql = "SELECT user_id FROM payments WHERE id = ?";
         $stmt = $conn->prepare($get_info_sql);
         $stmt->bind_param("i", $payment_id);
         $stmt->execute();
         $result = $stmt->get_result();
         $payment_info = $result->fetch_assoc();
-        
+
         if (!$payment_info) {
             throw new Exception("Payment not found");
         }
-        
+
         $user_id = $payment_info['user_id'];
-        
-        $update_payment_sql = "UPDATE payments SET status = 'paid' WHERE id = ?";
+
+        // ✅ Update payment: mark as paid + log approver and timestamp
+        $update_payment_sql = "UPDATE payments 
+                               SET status = 'paid', approved_by = ?, approved_at = NOW() 
+                               WHERE id = ?";
         $stmt = $conn->prepare($update_payment_sql);
-        $stmt->bind_param("i", $payment_id);
-        if (!$stmt->execute()) {
-            throw new Exception("Failed to update payment status");
+        if (!$stmt) {
+            throw new Exception("Failed to prepare update_payment_sql: " . $conn->error);
         }
-        
-        // Update all memberships for this user to active
+        $stmt->bind_param("ii", $admin_id, $payment_id);
+        if (!$stmt->execute()) {
+            throw new Exception("Failed to update payment: " . $stmt->error);
+        }
+
+        // ✅ Activate memberships and user
         $update_membership_sql = "UPDATE memberships SET status = 'active' WHERE user_id = ?";
         $stmt = $conn->prepare($update_membership_sql);
         $stmt->bind_param("i", $user_id);
         $stmt->execute();
-        
+
         $update_user_sql = "UPDATE users SET status = 'active' WHERE id = ?";
         $stmt = $conn->prepare($update_user_sql);
         $stmt->bind_param("i", $user_id);
         $stmt->execute();
-        
+
         $conn->commit();
-        $_SESSION['success_message'] = "Payment approved successfully!";
-        
+        $_SESSION['success_message'] = "Payment approved successfully by " . htmlspecialchars($_SESSION['user']['username']) . "!";
+
     } catch (Exception $e) {
         $conn->rollback();
         $_SESSION['error_message'] = "Failed to approve payment: " . $e->getMessage();
     }
-    
+
     header("Location: payments.php");
     exit();
 }
+
 
 // Pagination setup
 $records_per_page = 10;
@@ -200,11 +209,24 @@ $total_records = $count_result->fetch_assoc()['total'];
 $total_pages = ceil($total_records / $records_per_page);
 
 // === Fetch Payments with Pagination ===
-$sql = "SELECT p.id, u.username, u.email, p.amount, p.payment_method, p.status, p.payment_proof, p.created_at
+$sql = "SELECT 
+            p.id, 
+            u.username, 
+            u.email, 
+            p.amount, 
+            p.payment_method, 
+            p.status, 
+            p.payment_proof, 
+            p.created_at, 
+            p.approved_by, 
+            p.approved_at, 
+            m.username AS approved_by_name
         FROM payments p
         JOIN users u ON p.user_id = u.id
+        LEFT JOIN users m ON p.approved_by = m.id
         ORDER BY p.created_at DESC
         LIMIT ? OFFSET ?";
+
 $stmt = $conn->prepare($sql);
 $stmt->bind_param("ii", $records_per_page, $offset);
 $stmt->execute();
@@ -288,6 +310,8 @@ $result = $stmt->get_result();
                     <th>Proof</th>
                     <th>Status</th>
                     <th>Date</th>
+                    <th>Approved By</th>
+                    <th>Approved At</th>
                     <th>Actions</th>
                 </tr>
             </thead>
@@ -323,6 +347,21 @@ $result = $stmt->get_result();
                             </td>
                             <td><span class="status-badge <?php echo $statusClass; ?>"><?php echo ucfirst($row['status']); ?></span></td>
                             <td><?php echo date('M d, Y', strtotime($row['created_at'])); ?></td>
+                            <td>
+                                <?php 
+                                    echo !empty($row['approved_by_name']) 
+                                        ? htmlspecialchars($row['approved_by_name']) 
+                                        : '<span class="no-proof">—</span>';
+                                ?>
+                            </td>
+                            <td>
+                                <?php 
+                                    echo !empty($row['approved_at']) 
+                                        ? date('M d, Y h:i A', strtotime($row['approved_at'])) 
+                                        : '<span class="no-proof">—</span>';
+                                ?>
+                            </td>
+
                             <td>
                                 <?php if ($row['status'] != 'paid'): ?>
                                     <form method="POST" action="" style="display:inline;">

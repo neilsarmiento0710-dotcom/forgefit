@@ -80,7 +80,7 @@ if ($user['role'] === 'member') {
         <nav>
             <div style="display: flex; align-items: center; gap: 15px;">
                 <div class="logo">ForgeFit</div>
-                <div class="logo-two">Trainer</div>
+                <div class="logo-two">Member</div>
             </div>
             <ul class="nav-links">
                 <li><a href="dashboard.php" class="active">Dashboard</a></li>
@@ -219,9 +219,20 @@ if ($user['role'] === 'member') {
                             <input type="text" name="emergency_contact" value="<?php echo htmlspecialchars($user['emergency_contact'] ?? ''); ?>">
                         </div>
                         <div class="form-group">
-                            <label>Emergency Contact Phone</label>
-                            <input type="tel" name="emergency_phone" value="<?php echo htmlspecialchars($user['emergency_phone'] ?? ''); ?>">
+                            <label for="emergency_phone">Emergency Contact Phone</label>
+                            <input 
+                                id="emergency_phone"
+                                name="emergency_phone"
+                                type="tel"
+                                class="form-control"
+                                placeholder="09XXXXXXXXX"
+                                pattern="[0-9]{11}"
+                                maxlength="11"
+                                title="Enter a valid 11-digit number (e.g., 09123456789)"
+                                required
+                                value="<?= htmlspecialchars($user['emergency_phone'] ?? '') ?>">
                         </div>
+
                     </div>
                     <div class="form-actions">
                         <button type="submit" name="update_profile" class="btn-primary">Save Changes</button>

@@ -228,8 +228,18 @@ if ($user['role'] === 'trainer') {
                             <input type="text" name="emergency_contact" value="<?php echo htmlspecialchars($user['emergency_contact'] ?? ''); ?>">
                         </div>
                         <div class="form-group">
-                            <label>Emergency Contact Phone</label>
-                            <input type="tel" name="emergency_phone" value="<?php echo htmlspecialchars($user['emergency_phone'] ?? ''); ?>">
+                            <label for="emergency_phone">Emergency Contact Phone</label>
+                            <input 
+                                id="emergency_phone"
+                                name="emergency_phone"
+                                type="tel"
+                                class="form-control"
+                                placeholder="09XXXXXXXXX"
+                                pattern="[0-9]{11}"
+                                maxlength="11"
+                                title="Enter a valid 11-digit number (e.g., 09123456789)"
+                                required
+                                value="<?= htmlspecialchars($user['emergency_phone'] ?? '') ?>">
                         </div>
                     </div>
                     <div class="form-actions">
