@@ -1,120 +1,23 @@
 <?php
 session_start();
+require_once '../database/db.php';
+require_once '../classes/Trainer.php';
+require_once '../classes/Membership.php';
 
-error_reporting(E_ALL);
-ini_set('display_errors', 1);
-
-// 🔹 Include database connection with error checking
-$db_path = '../database/db.php';
-
-if (!file_exists($db_path)) {
-    die("Error: Database connection file not found at: " . realpath(dirname(__FILE__) . '/' . $db_path));
-}
-
-include $db_path;
-
-// 🔹 Verify connection exists
-if (!isset($conn) || $conn === null) {
-    die("Error: Database connection (\$conn) is not defined. Please check your db.php file.");
-}
-
-// Check if user is logged in
-if (!isset($_SESSION['user']) || !isset($_SESSION['user']['id'])) {
+if (!isset($_SESSION['user'])) {
     header("Location: ../../login.php");
     exit();
 }
 
-// Get user information
 $user_id = $_SESSION['user']['id'];
-$user_name = $_SESSION['user']['username'];
 
-// 🔹 Check if user has an active membership
-$membership_check_sql = "SELECT * FROM memberships 
-                         WHERE user_id = ? 
-                         AND status = 'active' 
-                         AND end_date >= CURDATE() 
-                         ORDER BY end_date DESC LIMIT 1";
-$membership_check_stmt = $conn->prepare($membership_check_sql);
-$membership_check_stmt->bind_param("i", $user_id);
-$membership_check_stmt->execute();
-$membership_check_result = $membership_check_stmt->get_result();
-$has_active_membership = ($membership_check_result->num_rows > 0);
+// Initialize models
+$trainerModel = new Trainer($conn);
+$membershipModel = new Membership($conn);
 
-// 🔹 Handle cancel booking request
-if (isset($_POST['cancel_booking'])) {
-    $booking_id = intval($_POST['booking_id']);
-    
-    // Check if booking belongs to user and is not confirmed
-    $check_sql = "SELECT status FROM bookings WHERE id = ? AND user_id = ?";
-    $check_stmt = $conn->prepare($check_sql);
-    $check_stmt->bind_param("ii", $booking_id, $user_id);
-    $check_stmt->execute();
-    $check_result = $check_stmt->get_result();
-    
-    if ($check_result->num_rows > 0) {
-        $booking = $check_result->fetch_assoc();
-        
-        if ($booking['status'] !== 'confirmed') {
-            $cancel_sql = "UPDATE bookings SET status = 'cancelled' WHERE id = ? AND user_id = ?";
-            $cancel_stmt = $conn->prepare($cancel_sql);
-            $cancel_stmt->bind_param("ii", $booking_id, $user_id);
-            
-            if ($cancel_stmt->execute()) {
-                $_SESSION['success_message'] = "Booking cancelled successfully!";
-            } else {
-                $_SESSION['error_message'] = "Failed to cancel booking.";
-            }
-        } else {
-            $_SESSION['error_message'] = "Cannot cancel confirmed bookings. Please contact admin.";
-        }
-    }
-    
-    header("Location: classes.php");
-    exit();
-}
-
-// 🔹 Handle reschedule request
-if (isset($_POST['request_reschedule'])) {
-    $booking_id = intval($_POST['booking_id']);
-    
-    $reschedule_sql = "UPDATE bookings SET status = 'reschedule_requested' WHERE id = ? AND user_id = ?";
-    $reschedule_stmt = $conn->prepare($reschedule_sql);
-    $reschedule_stmt->bind_param("ii", $booking_id, $user_id);
-    
-    if ($reschedule_stmt->execute()) {
-        $_SESSION['success_message'] = "Reschedule request sent! A trainer will contact you soon.";
-    } else {
-        $_SESSION['error_message'] = "Failed to request reschedule.";
-    }
-    
-    header("Location: classes.php");
-    exit();
-}
-
-if (isset($_POST['submit'])) {
-    // handle form submission if needed
-} else {
-    // 🔹 Fetch trainers from the USERS table instead of TRAINERS
-    $sql = "SELECT id, username AS name, specialty 
-            FROM users 
-            WHERE role = 'trainer' AND status = 'active'";
-    $result = $conn->query($sql);
-
-    if ($result === false) {
-        die("Database query failed: " . $conn->error);
-    }
-
-    // 🔹 Fetch user's bookings (joining users table for trainer info)
-    $bookings_sql = "SELECT b.*, t.username AS trainer_name, t.specialty 
-                     FROM bookings b 
-                     JOIN users t ON b.trainer_id = t.id 
-                     WHERE b.user_id = ? 
-                     ORDER BY b.booking_date DESC, b.booking_time DESC";
-    $bookings_stmt = $conn->prepare($bookings_sql);
-    $bookings_stmt->bind_param("i", $user_id);
-    $bookings_stmt->execute();
-    $bookings_result = $bookings_stmt->get_result();
-
+// Fetch data
+$trainers = $trainerModel->getActiveTrainers();
+$has_active_membership = $membershipModel->hasActiveMembership($user_id);
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -213,7 +116,6 @@ if (isset($_POST['submit'])) {
             color: #64748b;
             font-size: 1.2rem;
         }
-
         .logo-two {
             font-size: 0.9rem;
             font-weight: 600;
@@ -235,7 +137,7 @@ if (isset($_POST['submit'])) {
             </div>
             <ul class="nav-links">
                 <li><a href="dashboard.php">Dashboard</a></li>
-                <li><a href="trainers.php">Trainers</a></li>
+                <li><a href="trainers.php" class="active">Trainers</a></li>
                 <li><a href="classes.php">Bookings</a></li>
                 <li><a href="membership.php">Membership</a></li>
                 <li><a href="profile.php">Profile</a></li>
@@ -248,11 +150,17 @@ if (isset($_POST['submit'])) {
     </header>
     <main>
         <?php if (isset($_SESSION['success_message'])): ?>
-            <div class="success-message"><span class="success-icon">✓</span><?php echo htmlspecialchars($_SESSION['success_message']); unset($_SESSION['success_message']); ?></div>
+            <div class="success-message">
+                <span class="success-icon">✓</span>
+                <?php echo htmlspecialchars($_SESSION['success_message']); unset($_SESSION['success_message']); ?>
+            </div>
         <?php endif; ?>
 
         <?php if (isset($_SESSION['error_message'])): ?>
-            <div class="error-message"><span class="error-icon">✕</span><?php echo htmlspecialchars($_SESSION['error_message']); unset($_SESSION['error_message']); ?></div>
+            <div class="error-message">
+                <span class="error-icon">✕</span>
+                <?php echo htmlspecialchars($_SESSION['error_message']); unset($_SESSION['error_message']); ?>
+            </div>
         <?php endif; ?>
 
         <div class="trainers-hero">
@@ -262,27 +170,34 @@ if (isset($_POST['submit'])) {
 
         <section>
             <div class="trainer-list">
-                <?php if ($result->num_rows > 0): ?>
-                    <?php while ($trainer = $result->fetch_assoc()): ?>
+                <?php if (!empty($trainers)): ?>
+                    <?php foreach ($trainers as $trainer): ?>
                         <div class="trainer-card">
                             <div class="feature-icon">💪</div>
                             <h3><?php echo htmlspecialchars($trainer['name']); ?></h3>
-                            <p><strong>Specialty:</strong> <?php echo htmlspecialchars($trainer['specialty']); ?></p>
+                            <p><strong>Specialty:</strong> <?php echo htmlspecialchars($trainer['specialty'] ?? 'N/A'); ?></p>
                             <?php if ($has_active_membership): ?>
                                 <a href="book.php?trainer_id=<?php echo $trainer['id']; ?>" class="cta-btn">Book Session</a>
                             <?php else: ?>
-                                <a href="membership.php" class="cta-btn" style="background: linear-gradient(135deg, #94a3b8, #64748b);">Get Membership First</a>
+                                <a href="membership.php" class="cta-btn" style="background: linear-gradient(135deg, #94a3b8, #64748b);">
+                                    Get Membership First
+                                </a>
                             <?php endif; ?>
                         </div>
-                    <?php endwhile; ?>
+                    <?php endforeach; ?>
                 <?php else: ?>
-                    <div class="no-trainers"><p>No trainers available at the moment. Please check back later!</p></div>
+                    <div class="no-trainers">
+                        <p>No trainers available at the moment. Please check back later!</p>
+                    </div>
                 <?php endif; ?>
             </div>
         </section>
     </main>
 
-    <footer><div class="footer-bottom"><p>&copy; 2025 ForgeFit Gym. All rights reserved.</p></div></footer>
+    <footer>
+        <div class="footer-bottom">
+            <p>&copy; 2025 ForgeFit Gym. All rights reserved.</p>
+        </div>
+    </footer>
 </body>
 </html>
-<?php $conn->close(); } ?>

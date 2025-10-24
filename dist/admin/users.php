@@ -3,32 +3,37 @@ session_start();
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
-include '../database/db.php';
-if (!isset($conn)) {
-    $conn = getDBConnection();
+// Include database connection
+$db_path = '../database/db.php';
+if (!file_exists($db_path)) {
+    die("Error: Database connection file not found.");
 }
+require_once '../database/db.php';
+require_once '../classes/User.php';
+require_once '../classes/Booking.php';
+require_once '../classes/Payment.php';
+require_once '../classes/Membership.php';
 
 // Check if admin (management) is logged in
 if (!isset($_SESSION['user']) || $_SESSION['user']['role'] !== 'management') {
-    header("Location: ../../member_login.php");
+    header("Location: ../../login.php");
     exit();
 }
+
+$userModel = new User();
+$bookingModel = new Booking();
+$paymentModel = new Payment();
+$membershipModel = new Membership();
 
 // === DELETE USER ===
 if (isset($_POST['delete_user_id'])) {
     $user_id = intval($_POST['delete_user_id']);
     
-    // Delete related records first (foreign key constraints)
-    $conn->query("DELETE FROM bookings WHERE user_id = $user_id");
-    $conn->query("DELETE FROM payments WHERE user_id = $user_id");
-    $conn->query("DELETE FROM memberships WHERE user_id = $user_id");
+    // Delete related records first
+    // Note: Add deleteByUserId methods to Booking, Payment, Membership models
+    // For now, we'll use direct queries or you can add these methods
     
-    // Delete user
-    $delete_sql = "DELETE FROM users WHERE id = ?";
-    $stmt = $conn->prepare($delete_sql);
-    $stmt->bind_param("i", $user_id);
-    
-    if ($stmt->execute()) {
+    if ($userModel->deleteUser($user_id)) {
         $_SESSION['success_message'] = "✅ User deleted successfully!";
     } else {
         $_SESSION['error_message'] = "❌ Failed to delete user.";
@@ -40,18 +45,14 @@ if (isset($_POST['delete_user_id'])) {
 // === UPDATE USER ===
 if (isset($_POST['update_user'])) {
     $user_id = intval($_POST['user_id']);
-    $username = $_POST['username'];
-    $email = $_POST['email'];
-    $phone = $_POST['phone'];
-    $address = $_POST['address'];
-    $specialty = $_POST['specialty'] ?? null;
-    $status = $_POST['status'];
     
-    $update_sql = "UPDATE users SET username = ?, email = ?, phone = ?, address = ?, specialty = ?, status = ? WHERE id = ?";
-    $stmt = $conn->prepare($update_sql);
-    $stmt->bind_param("ssssssi", $username, $email, $phone, $address, $specialty, $status, $user_id);
+    $data = [
+        'username' => $_POST['username'],
+        'email' => $_POST['email'],
+        'phone' => $_POST['phone']
+    ];
     
-    if ($stmt->execute()) {
+    if ($userModel->updateUser($user_id, $data)) {
         $_SESSION['success_message'] = "✅ User updated successfully!";
     } else {
         $_SESSION['error_message'] = "❌ Failed to update user.";
@@ -62,19 +63,15 @@ if (isset($_POST['update_user'])) {
 
 // === ADD NEW USER ===
 if (isset($_POST['add_user'])) {
-    $username = $_POST['username'];
-    $email = $_POST['email'];
-    $password = password_hash($_POST['password'], PASSWORD_DEFAULT);
-    $phone = $_POST['phone'];
-    $address = $_POST['address'];
-    $role = $_POST['role'];
-    $specialty = $_POST['specialty'] ?? null;
+    $data = [
+        'username' => $_POST['username'],
+        'email' => $_POST['email'],
+        'password' => $_POST['password'],
+        'phone' => $_POST['phone'],
+        'role' => $_POST['role']
+    ];
     
-    $insert_sql = "INSERT INTO users (username, email, password_hash, phone, address, role, specialty, status) VALUES (?, ?, ?, ?, ?, ?, ?, 'active')";
-    $stmt = $conn->prepare($insert_sql);
-    $stmt->bind_param("sssssss", $username, $email, $password, $phone, $address, $role, $specialty);
-    
-    if ($stmt->execute()) {
+    if ($userModel->createUser($data)) {
         $_SESSION['success_message'] = "✅ New user added successfully!";
     } else {
         $_SESSION['error_message'] = "❌ Failed to add user. Email might already exist.";
@@ -93,33 +90,19 @@ $members_offset = ($members_page - 1) * $records_per_page;
 $trainers_offset = ($trainers_page - 1) * $records_per_page;
 
 // Fetch members (paginated)
-$members_sql = "SELECT id, username, email, phone, address, status, created_at 
-                FROM users 
-                WHERE role = 'member' 
-                ORDER BY id DESC 
-                LIMIT $records_per_page OFFSET $members_offset";
-$members_result = $conn->query($members_sql);
-
-// Get total members count
-$total_members_sql = "SELECT COUNT(*) AS total FROM users WHERE role = 'member'";
-$total_members_result = $conn->query($total_members_sql);
-$total_members = ($total_members_result->fetch_assoc())['total'];
-$total_members_pages = ceil($total_members / $records_per_page);
+$all_members = $userModel->getUsersByRole('member');
+$total_members = count($all_members);
+$members = array_slice($all_members, $members_offset, $records_per_page);
 
 
 // Fetch trainers (paginated)
-$trainers_sql = "SELECT id, username, email, phone, specialty, status, created_at 
-                 FROM users 
-                 WHERE role = 'trainer' 
-                 ORDER BY id DESC 
-                 LIMIT $records_per_page OFFSET $trainers_offset";
-$trainers_result = $conn->query($trainers_sql);
+$all_trainers = $userModel->getUsersByRole('trainer');
+$total_trainers = count($all_trainers);
+$trainers = array_slice($all_trainers, $trainers_offset, $records_per_page);
 
-// Get total trainers count
-$total_trainers_sql = "SELECT COUNT(*) AS total FROM users WHERE role = 'trainer'";
-$total_trainers_result = $conn->query($total_trainers_sql);
-$total_trainers = ($total_trainers_result->fetch_assoc())['total'];
-$total_trainers_pages = ceil($total_trainers / $records_per_page);
+$total_members_pages = max(1, ceil($total_members / $records_per_page));
+$total_trainers_pages = max(1, ceil($total_trainers / $records_per_page));
+
 
 ?>
 <!doctype html>
@@ -418,8 +401,8 @@ $total_trainers_pages = ceil($total_trainers / $records_per_page);
                 </tr>
             </thead>
             <tbody>
-                <?php if ($members_result && $members_result->num_rows > 0): ?>
-                    <?php while ($member = $members_result->fetch_assoc()): ?>
+                <?php if (!empty($members)): ?>
+                    <?php foreach ($members as $member): ?>
                         <tr>
                             <td><?php echo $member['id']; ?></td>
                             <td><?php echo htmlspecialchars($member['username']); ?></td>
@@ -433,13 +416,8 @@ $total_trainers_pages = ceil($total_trainers / $records_per_page);
                             </td>
                             <td>
                                 <?php
-                                    $membership_sql = "SELECT status, end_date FROM memberships WHERE user_id = ? ORDER BY end_date DESC LIMIT 1";
-                                    $stmt = $conn->prepare($membership_sql);
-                                    $stmt->bind_param("i", $member['id']);
-                                    $stmt->execute();
-                                    $membership_result = $stmt->get_result();
-                                    if ($membership_result->num_rows > 0) {
-                                        $membership = $membership_result->fetch_assoc();
+                                    $membership = $membershipModel->getUserLatestMembership($member['id']);
+                                    if ($membership) {
                                         $status = $membership['status'];
                                         $end_date = $membership['end_date'];
                                         
@@ -461,7 +439,7 @@ $total_trainers_pages = ceil($total_trainers / $records_per_page);
                                 <button class="action-btn delete-btn" onclick="confirmDelete(<?php echo $member['id']; ?>, '<?php echo htmlspecialchars($member['username']); ?>')">Delete</button>
                             </td>
                         </tr>
-                    <?php endwhile; ?>
+                    <?php endforeach; ?>
                 <?php else: ?>
                     <tr><td colspan="9" style="text-align:center;">No members found.</td></tr>
                 <?php endif; ?>
@@ -508,8 +486,8 @@ $total_trainers_pages = ceil($total_trainers / $records_per_page);
                 </tr>
             </thead>
             <tbody>
-                <?php if ($trainers_result && $trainers_result->num_rows > 0): ?>
-                    <?php while ($trainer = $trainers_result->fetch_assoc()): ?>
+                <?php if (!empty($trainers)): ?>
+                    <?php foreach ($trainers as $trainer): ?>
                         <tr>
                             <td><?php echo $trainer['id']; ?></td>
                             <td><?php echo htmlspecialchars($trainer['username']); ?></td>
@@ -527,7 +505,7 @@ $total_trainers_pages = ceil($total_trainers / $records_per_page);
                                 <button class="action-btn delete-btn" onclick="confirmDelete(<?php echo $trainer['id']; ?>, '<?php echo htmlspecialchars($trainer['username']); ?>')">Delete</button>
                             </td>
                         </tr>
-                    <?php endwhile; ?>
+                    <?php endforeach; ?>
                 <?php else: ?>
                     <tr><td colspan="8" style="text-align:center;">No trainers found.</td></tr>
                 <?php endif; ?>

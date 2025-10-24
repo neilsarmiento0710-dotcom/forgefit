@@ -5,16 +5,13 @@ error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
 // Include database connection
-$db_path = '../database/db.php';
-if (!file_exists($db_path)) {
-    die("Error: Database connection file not found.");
-}
-include $db_path;
+require_once '../database/db.php';
 
-// Verify connection exists
-if (!isset($conn) || $conn === null) {
-    $conn = getDBConnection();
-}
+// Include Model Classes
+require_once '../classes/User.php';
+require_once '../classes/Booking.php';
+require_once '../classes/Membership.php';
+require_once '../classes/Payment.php';
 
 // Check if user is logged in
 if (!isset($_SESSION['user']) || !isset($_SESSION['user']['id'])) {
@@ -22,101 +19,41 @@ if (!isset($_SESSION['user']) || !isset($_SESSION['user']['id'])) {
     exit();
 }
 
+// Check if user is management
 if ($_SESSION['user']['role'] !== 'management') {
     header("Location: ../admin/dashboard.php");
     exit();
 }
+
 // Get user information
 $user_id = $_SESSION['user']['id'];
 $user_name = $_SESSION['user']['username'];
 
-// Fetch user's bookings
-$bookings_sql = "SELECT b.*, t.username as trainer_name, t.specialty
-                 FROM bookings b 
-                 JOIN users t ON b.trainer_id = t.id
-                 WHERE b.user_id = ? 
-                 ORDER BY b.booking_date DESC, b.booking_time DESC 
-                 LIMIT 5";
-$bookings_stmt = $conn->prepare($bookings_sql);
-$bookings_stmt->bind_param("i", $user_id);
-$bookings_stmt->execute();
-$bookings_result = $bookings_stmt->get_result();
+// Initialize Model Classes
+$userModel = new User();
+$bookingModel = new Booking();
+$membershipModel = new Membership();
+$paymentModel = new Payment();
 
-// Fetch today's bookings count
-$today_date = date('Y-m-d');
-$today_bookings_sql = "SELECT COUNT(*) AS today_count FROM bookings WHERE booking_date = ?";
-$today_stmt = $conn->prepare($today_bookings_sql);
-$today_stmt->bind_param("s", $today_date);
-$today_stmt->execute();
-$today_result = $today_stmt->get_result();
-$today_bookings = 0;
-if ($today_result && $today_result->num_rows > 0) {
-    $row = $today_result->fetch_assoc();
-    $today_bookings = $row['today_count'];
-}
+// Fetch dashboard statistics using OOP methods
+$user_count = $userModel->countUsersByRole('member');
+$trainer_count = $userModel->countUsersByRole('trainer');
+$today_bookings = $bookingModel->countBookingsByDate(date('Y-m-d'));
+$active_memberships = $membershipModel->countActiveMemberships();
+$total_earnings = $paymentModel->getTotalEarnings('paid');
 
+// Fetch recent bookings (optional for future use)
+$recent_bookings = $bookingModel->getUserBookings($user_id, 5);
 
-// Fetch total users
-$user_count_sql = "SELECT COUNT(*) AS total_users FROM users WHERE role = 'member'";
-$user_count_result = $conn->query($user_count_sql);
-$user_count = 0;
-if ($user_count_result && $user_count_result->num_rows > 0) {
-    $row = $user_count_result->fetch_assoc();
-    $user_count = $row['total_users'];
-}
-
-// Fetch total trainers
-$trainer_count_sql = "SELECT COUNT(*) AS total_trainers FROM users WHERE role = 'trainer'";
-$trainer_count_result = $conn->query($trainer_count_sql);
-$trainer_count = 0;
-if ($trainer_count_result && $trainer_count_result->num_rows > 0) {
-    $row = $trainer_count_result->fetch_assoc();
-    $trainer_count = $row['total_trainers'];
-}
-
-// Fetch active memberships by date
-$today = date('Y-m-d');
-$active_memberships_sql = "
-    SELECT COUNT(*) AS active_count 
-    FROM memberships 
-    WHERE start_date <= ? AND end_date >= ?
-";
-$active_stmt = $conn->prepare($active_memberships_sql);
-$active_stmt->bind_param("ss", $today, $today);
-$active_stmt->execute();
-$active_result = $active_stmt->get_result();
-$active_memberships = 0;
-if ($active_result && $active_result->num_rows > 0) {
-    $row = $active_result->fetch_assoc();
-    $active_memberships = $row['active_count'];
-}
-// === Earnings Calculation ===
-$total_earnings = 0.00;
-
-// Query total paid payments
-$earnings_sql = "SELECT SUM(amount) AS total FROM payments WHERE status = 'paid'";
-$earnings_result = $conn->query($earnings_sql);
-
-if ($earnings_result && $row = $earnings_result->fetch_assoc()) {
-    $total_earnings = $row['total'] ?? 0.00;
-}
-
-if (isset($_POST['submit'])) {
-} else {
 ?>
 <!doctype html>
 <html lang="en">
 <head>
-    <?php 
-    error_reporting(E_ALL);
-    ini_set('display_errors', 1);
-    ?>
-    
     <title>Admin Dashboard - ForgeFit</title>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=0, minimal-ui" />
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
-    <meta name="description" content="ForgeFit Member Dashboard" />
+    <meta name="description" content="ForgeFit Admin Dashboard" />
     <meta name="author" content="Sniper 2025" />
     
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet"> 
@@ -145,12 +82,12 @@ if (isset($_POST['submit'])) {
 <body>
     <header>
         <nav>
-             <div style="display: flex; align-items: center; gap: 15px;">
-        <div class="logo">ForgeFit</div>
-        <div class="logo-two">Admin</div>
-    </div>
+            <div style="display: flex; align-items: center; gap: 15px;">
+                <div class="logo">ForgeFit</div>
+                <div class="logo-two">Admin</div>
+            </div>
             <ul class="nav-links">
-                <li><a href="dashboard.php">Dashboard</a></li>
+                <li><a href="dashboard.php" class="active">Dashboard</a></li>
                 <li><a href="bookings.php">Bookings</a></li>
                 <li><a href="users.php">Users</a></li>
                 <li><a href="payments.php">Payments</a></li>
@@ -167,100 +104,103 @@ if (isset($_POST['submit'])) {
     
     <!-- Main Content -->
     <main>
-            <!-- Success Message Display -->
+        <!-- Success Message Display -->
         <?php if (isset($_SESSION['success_message'])): ?>
             <div class="success-message">
-            <span class="success-icon">✓</span>
-            <?php 
-                echo htmlspecialchars($_SESSION['success_message']); 
-                unset($_SESSION['success_message']); // Clear it after showing
-            ?>
+                <span class="success-icon">✓</span>
+                <?php 
+                    echo htmlspecialchars($_SESSION['success_message']); 
+                    unset($_SESSION['success_message']);
+                ?>
             </div>
         <?php endif; ?>
+        
         <!-- Dashboard Header -->
         <div class="dashboard-hero">
             <h1 class="dashboard-title">Welcome Back, Admin!</h1>
         </div>
 
-    <div class="earnings-grid">
-        <!-- Card 3: Total Users -->
-        <div class="earnings-card">
-            <div class="earnings-header">👥 MEMBERS</div>
-            <div class="earnings-content">
-                <div class="earnings-amount-container">
-                    <span class="earnings-amount">
-                        <?php echo number_format($user_count); ?>
-                    </span>
+        <div class="earnings-grid">
+            <!-- Card 1: Total Members -->
+            <div class="earnings-card">
+                <div class="earnings-header">👥 MEMBERS</div>
+                <div class="earnings-content">
+                    <div class="earnings-amount-container">
+                        <span class="earnings-amount">
+                            <?php echo number_format($user_count); ?>
+                        </span>
+                    </div>
+                    <div class="earnings-percentage">Registered Members</div>
                 </div>
-                <div class="earnings-percentage">Registered Members</div>
-            </div>
-            <div class="progress-bar">
-                <div class="progress-bar-fill" style="width: 100%; background: linear-gradient(135deg, #10b981, #059669);"></div>
-            </div>
-        </div>
-     <!-- Card 4: Trainers -->
-        <div class="earnings-card">
-            <div class="earnings-header">🏋️ TRAINERS</div>
-            <div class="earnings-content">
-                <div class="earnings-amount-container">
-                    <span class="earnings-amount">
-                        <?php echo number_format($trainer_count); ?>
-                    </span>
+                <div class="progress-bar">
+                    <div class="progress-bar-fill" style="width: 100%; background: linear-gradient(135deg, #10b981, #059669);"></div>
                 </div>
-                <div class="earnings-percentage">Active Trainers</div>
             </div>
-            <div class="progress-bar">
-                <div class="progress-bar-fill" style="width: 80%; background: linear-gradient(135deg, #f59e0b, #d97706);"></div>
+            
+            <!-- Card 2: Trainers -->
+            <div class="earnings-card">
+                <div class="earnings-header">🏋️ TRAINERS</div>
+                <div class="earnings-content">
+                    <div class="earnings-amount-container">
+                        <span class="earnings-amount">
+                            <?php echo number_format($trainer_count); ?>
+                        </span>
+                    </div>
+                    <div class="earnings-percentage">Active Trainers</div>
+                </div>
+                <div class="progress-bar">
+                    <div class="progress-bar-fill" style="width: 80%; background: linear-gradient(135deg, #f59e0b, #d97706);"></div>
+                </div>
+            </div>
+
+            <!-- Card 3: Today's Bookings -->
+            <div class="earnings-card">
+                <div class="earnings-header">📆 TODAY'S BOOKINGS</div>
+                <div class="earnings-content">
+                    <div class="earnings-amount-container">
+                        <span class="earnings-amount">
+                            <?php echo number_format($today_bookings); ?>
+                        </span>
+                    </div>
+                    <div class="earnings-percentage">Sessions Scheduled</div>
+                </div>
+                <div class="progress-bar">
+                    <div class="progress-bar-fill" style="width: <?php echo min($today_bookings * 5, 100); ?>%; background: linear-gradient(135deg, #6366f1, #4338ca);"></div>
+                </div>
             </div>
         </div>
 
-        <!-- Card 4: Today's Bookings -->
-        <div class="earnings-card">
-            <div class="earnings-header">📆 TODAY’S BOOKINGS</div>
-            <div class="earnings-content">
-                <div class="earnings-amount-container">
-                    <span class="earnings-amount">
-                        <?php echo number_format($today_bookings); ?>
-                    </span>
+        <div class="earnings-grid">
+            <!-- Card 4: Active Memberships -->
+            <div class="earnings-card">
+                <div class="earnings-header">🔥 ACTIVE MEMBERSHIPS</div>
+                <div class="earnings-content">
+                    <div class="earnings-amount-container">
+                        <span class="earnings-amount">
+                            <?php echo number_format($active_memberships); ?>
+                        </span>
+                    </div>
+                    <div class="earnings-percentage">Currently Active</div>
                 </div>
-                <div class="earnings-percentage">Sessions Scheduled</div>
+                <div class="progress-bar">
+                    <div class="progress-bar-fill" style="width: <?php echo min($active_memberships * 3, 100); ?>%; background: linear-gradient(135deg, #f43f5e, #be123c);"></div>
+                </div>
             </div>
-            <div class="progress-bar">
-                <div class="progress-bar-fill" style="width: <?php echo min($today_bookings * 5, 100); ?>%; background: linear-gradient(135deg, #6366f1, #4338ca);"></div>
+            
+            <!-- Card 5: Total Earnings -->
+            <div class="earnings-card">
+                <div class="earnings-header">💰 TOTAL EARNINGS</div>
+                <div class="earnings-content">
+                    <div class="earnings-amount-container">
+                        <span class="earnings-amount">₱<?php echo number_format($total_earnings, 2); ?></span>
+                    </div>
+                    <div class="earnings-percentage">All-Time Revenue</div>
+                </div>
+                <div class="progress-bar">
+                    <div class="progress-bar-fill" style="width: 100%; background: linear-gradient(135deg, #16a34a, #22c55e);"></div>
+                </div>
             </div>
         </div>
-    </div>
-
-    <div class="earnings-grid">
-        <!-- Card: Active Memberships -->
-        <div class="earnings-card">
-            <div class="earnings-header">🔥 ACTIVE MEMBERSHIPS</div>
-            <div class="earnings-content">
-                <div class="earnings-amount-container">
-                    <span class="earnings-amount">
-                        <?php echo number_format($active_memberships); ?>
-                    </span>
-                </div>
-                <div class="earnings-percentage">Currently Active</div>
-            </div>
-            <div class="progress-bar">
-                <div class="progress-bar-fill" style="width: <?php echo min($active_memberships * 3, 100); ?>%; background: linear-gradient(135deg, #f43f5e, #be123c);"></div>
-            </div>
-        </div>
-        <!-- Card: Total Earnings -->
-        <div class="earnings-card">
-            <div class="earnings-header">💰 TOTAL EARNINGS</div>
-            <div class="earnings-content">
-                <div class="earnings-amount-container">
-                    <span class="earnings-amount">₱<?php echo number_format($total_earnings, 2); ?></span>
-                </div>
-                <div class="earnings-percentage">All-Time Revenue</div>
-            </div>
-            <div class="progress-bar">
-                <div class="progress-bar-fill" style="width: 100%; background: linear-gradient(135deg, #16a34a, #22c55e);"></div>
-            </div>
-        </div>
-    </div>
     </main>
 
     <footer>
@@ -295,4 +235,3 @@ if (isset($_POST['submit'])) {
     </script>
 </body>
 </html>
-<?php } ?>

@@ -8,33 +8,28 @@ $db_path = '../database/db.php';
 if (!file_exists($db_path)) {
     die("Error: Database connection file not found.");
 }
-include $db_path;
 
-if (!isset($conn) || $conn === null) {
-    $conn = getDBConnection();
-}
+require_once '../database/db.php';
+require_once '../classes/Booking.php';
 
 // Check if user is logged in as management
 if (!isset($_SESSION['user']) || $_SESSION['user']['role'] !== 'management') {
-    header("Location: ../../member_login.php");
+    header("Location: ../../login.php");
     exit();
 }
 
-// Handle status update
+$bookingModel = new Booking();
+
+// Status Update
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_status'])) {
     $booking_id = intval($_POST['booking_id']);
     $new_status = $_POST['status'];
     
-    $update_sql = "UPDATE bookings SET status = ? WHERE id = ?";
-    $stmt = $conn->prepare($update_sql);
-    $stmt->bind_param("si", $new_status, $booking_id);
-    
-    if ($stmt->execute()) {
+    if ($bookingModel->updateStatus($booking_id, $new_status)) {
         $_SESSION['success_message'] = "Booking status updated successfully!";
     } else {
         $_SESSION['error_message'] = "Failed to update booking status.";
     }
-    $stmt->close();
     header("Location: bookings.php");
     exit();
 }
@@ -43,16 +38,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_status'])) {
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_booking'])) {
     $booking_id = intval($_POST['booking_id']);
     
-    $delete_sql = "DELETE FROM bookings WHERE id = ?";
-    $stmt = $conn->prepare($delete_sql);
-    $stmt->bind_param("i", $booking_id);
-    
-    if ($stmt->execute()) {
+    if ($bookingModel->deleteBooking($booking_id)) {
         $_SESSION['success_message'] = "Booking deleted successfully!";
     } else {
         $_SESSION['error_message'] = "Failed to delete booking.";
     }
-    $stmt->close();
     header("Location: bookings.php");
     exit();
 }
@@ -62,33 +52,13 @@ $records_per_page = 10;
 $current_page = isset($_GET['page']) ? intval($_GET['page']) : 1;
 $offset = ($current_page - 1) * $records_per_page;
 
-// Get total number of bookings
-$count_sql = "SELECT COUNT(*) as total FROM bookings";
-$count_result = $conn->query($count_sql);
-$total_records = $count_result->fetch_assoc()['total'];
+// Get all bookings and calculate pagination
+$all_bookings = $bookingModel->getAllBookings();
+$total_records = count($all_bookings);
 $total_pages = ceil($total_records / $records_per_page);
 
-// Fetch bookings with pagination
-$sql = "
-    SELECT 
-        b.id, 
-        b.booking_date, 
-        b.booking_time, 
-        b.status, 
-        u.username AS member_name,
-        u.email AS member_email,
-        trainer.username AS trainer_name,
-        trainer.specialty
-    FROM bookings b
-    JOIN users u ON b.user_id = u.id
-    JOIN users trainer ON b.trainer_id = trainer.id
-    ORDER BY b.booking_date DESC, b.booking_time DESC
-    LIMIT ? OFFSET ?
-";
-$stmt = $conn->prepare($sql);
-$stmt->bind_param("ii", $records_per_page, $offset);
-$stmt->execute();
-$result = $stmt->get_result();
+// Get bookings for current page
+$bookings = array_slice($all_bookings, $offset, $records_per_page);
 ?>
 
 <!doctype html>
@@ -110,189 +80,7 @@ $result = $stmt->get_result();
     <link rel="stylesheet" href="../assets/fonts/material.css" />
     <link rel="stylesheet" href="../assets/css/home.css?v=4"/> 
     <link rel="stylesheet" href="../assets/css/member_dashboard.css" id="main-style-link"/> 
-
-    <style>
-        .modern-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 30px;
-            border-radius: 12px;
-            overflow: hidden;
-            background-color: #0f172a;
-        }
-        .modern-table th {
-            background-color: #1e293b;
-            color: #e2e8f0;
-            text-transform: uppercase;
-            font-size: 0.85rem;
-            letter-spacing: 0.05em;
-            padding: 14px;
-        }
-        .modern-table td {
-            padding: 12px;
-            border-bottom: 1px solid #1e293b;
-            color: #cbd5e1;
-            text-align: center;
-        }
-        .status-badge {
-            padding: 6px 10px;
-            border-radius: 20px;
-            font-weight: 600;
-            font-size: 0.85rem;
-            display: inline-block;
-        }
-        .status-pending {
-            background-color: #facc15;
-            color: #000;
-        }
-        .status-confirmed {
-            background-color: #3b82f6;
-            color: #fff;
-        }
-        .status-completed {
-            background-color: #22c55e;
-            color: #fff;
-        }
-        .status-cancelled {
-            background-color: #ef4444;
-            color: #fff;
-        }
-        .dashboard-title {
-            text-align: center;
-            margin-top: 40px;
-            color: #f8fafc;
-        }
-        .action-btn {
-            padding: 6px 12px;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 0.85rem;
-            margin: 2px;
-            transition: all 0.3s ease;
-        }
-        .edit-btn {
-            background-color: #3b82f6;
-            color: white;
-        }
-        .edit-btn:hover {
-            background-color: #2563eb;
-        }
-        .delete-btn {
-            background-color: #ef4444;
-            color: white;
-        }
-        .delete-btn:hover {
-            background-color: #dc2626;
-        }
-        .status-select {
-            padding: 6px 10px;
-            border-radius: 6px;
-            background-color: #1e293b;
-            color: #e2e8f0;
-            border: 1px solid #334155;
-            font-size: 0.85rem;
-        }
-        .modal {
-            display: none;
-            position: fixed;
-            z-index: 1000;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0,0,0,0.7);
-        }
-        .modal-content {
-            background-color: #1e293b;
-            margin: 10% auto;
-            padding: 30px;
-            border-radius: 12px;
-            width: 90%;
-            max-width: 500px;
-            color: #e2e8f0;
-        }
-        .modal-header {
-            font-size: 1.5rem;
-            margin-bottom: 20px;
-            color: #f8fafc;
-        }
-        .modal-footer {
-            margin-top: 20px;
-            text-align: right;
-        }
-        .close {
-            color: #94a3b8;
-            float: right;
-            font-size: 28px;
-            font-weight: bold;
-            cursor: pointer;
-        }
-        .close:hover {
-            color: #f8fafc;
-        }
-        .form-group {
-            margin-bottom: 20px;
-        }
-        .form-group label {
-            display: block;
-            margin-bottom: 8px;
-            color: #cbd5e1;
-        }
-        .pagination {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            gap: 10px;
-            margin: 30px 0;
-            padding: 20px 0;
-            width: 100%;
-        }
-        .pagination a, .pagination span {
-            padding: 10px 16px;
-            background-color: #1e293b;
-            color: #e2e8f0;
-            text-decoration: none;
-            border-radius: 6px;
-            transition: all 0.3s ease;
-        }
-        .pagination a:hover {
-            background-color: #3b82f6;
-        }
-        .pagination .active {
-            background-color: #3b82f6;
-            font-weight: 600;
-        }
-        .pagination .disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
-        .alert {
-            padding: 15px;
-            margin: 20px 0;
-            border-radius: 8px;
-            text-align: center;
-        }
-        .alert-success {
-            background-color: #22c55e;
-            color: white;
-        }
-        .alert-error {
-            background-color: #ef4444;
-            color: white;
-        }
-        .logo-two {
-            font-size: 0.9rem;
-            font-weight: 600;
-            color: #90e0ef;
-            background: rgba(144, 224, 239, 0.1);
-            padding: 6px 16px;
-            border-radius: 20px;
-            border: 1px solid rgba(144, 224, 239, 0.3);
-            margin-left: 15px;
-        }
-
-    </style>
+    <link rel="stylesheet" href="../assets/css/bookings_a.css"/>
 </head>
 
 <body>
@@ -353,8 +141,8 @@ $result = $stmt->get_result();
                 </tr>
             </thead>
             <tbody>
-                <?php if ($result && $result->num_rows > 0): ?>
-                    <?php while ($row = $result->fetch_assoc()): ?>
+                <?php if (!empty($bookings)): ?>
+                    <?php foreach ($bookings as $row): ?>
                         <?php
                             $statusClass = '';
                             switch (strtolower($row['status'])) {
@@ -386,7 +174,7 @@ $result = $stmt->get_result();
                                 </button>
                             </td>
                         </tr>
-                    <?php endwhile; ?>
+                    <?php endforeach; ?>
                 <?php else: ?>
                     <tr><td colspan="7" style="color:#94a3b8;">No bookings found.</td></tr>
                 <?php endif; ?>

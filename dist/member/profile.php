@@ -1,168 +1,55 @@
 <?php
 session_start();
+require_once '../classes/Profile.php';
+require_once '../database/db.php';
 
-error_reporting(E_ALL);
-ini_set('display_errors', 1);
-
-// Include database connection
-$db_path = '../database/db.php';
-if (!file_exists($db_path)) {
-    die("Error: Database connection file not found.");
-}
-include $db_path;
-
-// Verify connection exists
-if (!isset($conn) || $conn === null) {
-    $conn = getDBConnection();
-}
-
-// Check if user is logged in
-if (!isset($_SESSION['user']) || !isset($_SESSION['user']['id'])) {
+if (!isset($_SESSION['user']['id'])) {
     header("Location: ../../login.php");
-    exit();
+    exit;
 }
 
-// Get user information
-$user_id = $_SESSION['user']['id'];
+$profile = new Profile($_SESSION['user']['id']);
+$user = $profile->getUser();
 
-// Fetch complete user profile
-$user_sql = "SELECT * FROM users WHERE id = ?";
-$user_stmt = $conn->prepare($user_sql);
-$user_stmt->bind_param("i", $user_id);
-$user_stmt->execute();
-$user_result = $user_stmt->get_result();
-$user = $user_result->fetch_assoc();
-
-// Handle profile update
+// ✅ Update profile info
 if (isset($_POST['update_profile'])) {
-    $username = $_POST['username'];
-    $email = $_POST['email'];
-    $phone = $_POST['phone'];
-    $address = $_POST['address'];
-    $emergency_contact = $_POST['emergency_contact'];
-    $emergency_phone = $_POST['emergency_phone'];
-    
-    $update_sql = "UPDATE users SET 
-                   username = ?, 
-                   email = ?, 
-                   phone = ?, 
-                   address = ?, 
-                   emergency_contact = ?, 
-                   emergency_phone = ? 
-                   WHERE id = ?";
-    
-    $update_stmt = $conn->prepare($update_sql);
-    $update_stmt->bind_param("ssssssi", $username, $email, $phone, $address, $emergency_contact, $emergency_phone, $user_id);
-    
-    if ($update_stmt->execute()) {
-        $_SESSION['success_message'] = "Profile updated successfully!";
-        $_SESSION['user']['username'] = $username;
-        header("Location: profile.php");
-        exit();
-    } else {
-        $error_message = "Failed to update profile.";
-    }
+    $result = $profile->updateProfile($_POST);
+    $_SESSION['success_message'] = $result ? "Profile updated successfully!" : "Failed to update profile.";
+    header("Location: profile.php");
+    exit;
 }
 
-// Handle password change
+// ✅ Change password
 if (isset($_POST['change_password'])) {
-    $current_password = $_POST['current_password'];
-    $new_password = $_POST['new_password'];
-    $confirm_password = $_POST['confirm_password'];
-    
-    // Verify current password
-    if (password_verify($current_password, $user['password_hash'])) {
-        if ($new_password === $confirm_password) {
-            if (strlen($new_password) >= 6) {
-                $new_password_hash = password_hash($new_password, PASSWORD_DEFAULT);
-                
-                $password_sql = "UPDATE users SET password_hash = ? WHERE id = ?";
-                $password_stmt = $conn->prepare($password_sql);
-                $password_stmt->bind_param("si", $new_password_hash, $user_id);
-                
-                if ($password_stmt->execute()) {
-                    $_SESSION['success_message'] = "Password changed successfully!";
-                    header("Location: profile.php");
-                    exit();
-                } else {
-                    $error_message = "Failed to change password.";
-                }
-            } else {
-                $error_message = "Password must be at least 6 characters long.";
-            }
-        } else {
-            $error_message = "New passwords do not match.";
-        }
+    $result = $profile->changePassword($_POST['current_password'], $_POST['new_password'], $_POST['confirm_password']);
+    if ($result === true) {
+        $_SESSION['success_message'] = "Password changed successfully!";
+        header("Location: profile.php");
+        exit;
     } else {
-        $error_message = "Current password is incorrect.";
+        $error_message = $result;
     }
 }
 
-// Handle profile picture upload
+// ✅ Update picture
 if (isset($_POST['update_picture'])) {
-    if (isset($_FILES['profile_picture']) && $_FILES['profile_picture']['error'] === UPLOAD_ERR_OK) {
-        $upload_dir = '../admin/upload/profiles/'; // Added trailing slash
-        if (!file_exists($upload_dir)) {
-            mkdir($upload_dir, 0777, true);
-        }
-        
-        $allowed_types = ['image/jpeg', 'image/png', 'image/jpg'];
-        $file_type = $_FILES['profile_picture']['type'];
-        
-        if (in_array($file_type, $allowed_types)) {
-            $file_extension = pathinfo($_FILES['profile_picture']['name'], PATHINFO_EXTENSION);
-            $new_filename = 'profile_' . $user_id . '_' . time() . '.' . $file_extension;
-            $upload_path = $upload_dir . $new_filename;
-            
-            if (move_uploaded_file($_FILES['profile_picture']['tmp_name'], $upload_path)) {
-                // Delete old profile picture if exists
-                if ($user['profile_picture'] && file_exists($upload_dir . $user['profile_picture'])) {
-                    unlink($upload_dir . $user['profile_picture']);
-                }
-                
-                $picture_sql = "UPDATE users SET profile_picture = ? WHERE id = ?";
-                $picture_stmt = $conn->prepare($picture_sql);
-                $picture_stmt->bind_param("si", $new_filename, $user_id);
-                
-                if ($picture_stmt->execute()) {
-                    $_SESSION['success_message'] = "Profile picture updated successfully!";
-                    header("Location: profile.php");
-                    exit();
-                }
-            } else {
-                $error_message = "Failed to upload profile picture.";
-            }
-        } else {
-            $error_message = "Only JPG, JPEG, and PNG files are allowed.";
-        }
+    $result = $profile->updatePicture($_FILES['profile_picture']);
+    if ($result === true) {
+        $_SESSION['success_message'] = "Profile picture updated!";
+        header("Location: profile.php");
+        exit;
     } else {
-        $error_message = "Please select a file to upload.";
+        $error_message = $result;
     }
 }
 
-// Fetch user statistics
-$stats_sql = "SELECT 
-                (SELECT COUNT(*) 
-                 FROM bookings 
-                 WHERE user_id = ?) AS total_bookings,
-                (SELECT COUNT(*) 
-                 FROM memberships 
-                 WHERE user_id = ? AND status = 'active') AS active_memberships";
-
-$stats_stmt = $conn->prepare($stats_sql);
-$stats_stmt->bind_param("ii", $user_id, $user_id);
-$stats_stmt->execute();
-$stats = $stats_stmt->get_result()->fetch_assoc();
-
-// Access the results
-$total_bookings = $stats['total_bookings'];
-$active_memberships = $stats['active_memberships'];
-
-
-// Refresh user data after any update
-$user_stmt->execute();
-$user = $user_stmt->get_result()->fetch_assoc();
+// ✅ Trainer stats (if trainer)
+if ($user['role'] === 'member') {
+    $stats = $profile->getTrainerStats();
+}
 ?>
+
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -172,7 +59,6 @@ $user = $user_stmt->get_result()->fetch_assoc();
     <title>My Profile - ForgeFit</title>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;600;700;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="../assets/fonts/phosphor/duotone/style.css" />
-    <!-- FIXED: Load home.css first, then profile.css will override -->
     <link rel="stylesheet" href="../assets/css/home.css" />
     <link rel="stylesheet" href="../assets/css/profile.css?v=2" />
 
@@ -187,21 +73,21 @@ $user = $user_stmt->get_result()->fetch_assoc();
         border: 1px solid rgba(144, 224, 239, 0.3);
         margin-left: 15px;
     }
-    </style>
+    </style>    
 </head>
 <body class="profile-page">
     <header>
         <nav>
             <div style="display: flex; align-items: center; gap: 15px;">
                 <div class="logo">ForgeFit</div>
-                <div class="logo-two">Member</div>
+                <div class="logo-two">Trainer</div>
             </div>
             <ul class="nav-links">
-                <li><a href="dashboard.php">Dashboard</a></li>
+                <li><a href="dashboard.php" class="active">Dashboard</a></li>
                 <li><a href="trainers.php">Trainers</a></li>
                 <li><a href="classes.php">Bookings</a></li>
                 <li><a href="membership.php">Membership</a></li>
-                <li><a href="profile.php" class="active">Profile</a></li>
+                <li><a href="profile.php">Profile</a></li>
                 <li><a href="../../logout.php" class="cta-btn">Logout</a></li>
             </ul>
             <div class="mobile-menu">
@@ -221,43 +107,32 @@ $user = $user_stmt->get_result()->fetch_assoc();
         <?php endif; ?>
 
         <?php if (isset($error_message)): ?>
-            <div class="error-message">⚠ <?php echo htmlspecialchars($error_message); ?></div>
+            <div class="error-message">⚠ <?php echo $error_message; ?></div>
         <?php endif; ?>
 
         <div class="profile-header">
             <div class="profile-picture-container">
-                <?php if (!empty($user['profile_picture'])): ?>
+                <?php if ($user['profile_picture']): ?>
                     <img src="../admin/upload/profiles/<?php echo htmlspecialchars($user['profile_picture']); ?>" 
                          alt="Profile Picture" class="profile-picture">
                 <?php else: ?>
                     <div class="profile-picture-placeholder">
-                        <?php echo strtoupper(substr($user['username'] ?? 'U', 0, 1)); ?>
+                        <?php echo strtoupper(substr($user['username'], 0, 1)); ?>
                     </div>
                 <?php endif; ?>
                 <button class="change-picture-btn" onclick="openPictureModal()">📷</button>
             </div>
 
             <div class="profile-info">
-                <h2><?php echo htmlspecialchars($user['username'] ?? 'User'); ?></h2>
-                <p><?php echo htmlspecialchars($user['email'] ?? ''); ?></p>
+                <h2><?php echo htmlspecialchars($user['username']); ?></h2>
+                <p><?php echo htmlspecialchars($user['email']); ?></p>
                 <p class="member-role" style="font-weight: 600; margin-top: 5px;">
-                    <?php echo ucfirst($user['role'] ?? 'member'); ?> Member
+                    <?php echo isset($user['role']) ? ucfirst($user['role']) : 'Member'; ?>
                 </p>
-
-                <div class="stats-grid">
-                    <div class="stat-card">
-                        <div class="number"><?php echo $stats['total_bookings'] ?? 0; ?></div>
-                        <div class="label">Total Bookings</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="number"><?php echo $stats['active_memberships'] ?? 0; ?></div>
-                        <div class="label">Active Plans</div>
-                    </div>
-                </div>
             </div>
         </div>
 
-        <div class="profile-sections">
+         <div class="profile-sections">
             <!-- PERSONAL INFO SECTION -->
             <div class="profile-section">
                 <div class="section-header">
@@ -436,14 +311,12 @@ $user = $user_stmt->get_result()->fetch_assoc();
             document.getElementById('pictureModal').classList.remove('active');
         }
 
-        // Close modal when clicking outside
         document.getElementById('pictureModal').addEventListener('click', function(e) {
             if (e.target === this) {
                 closePictureModal();
             }
         });
 
-        // Header scroll effect
         window.addEventListener('scroll', function() {
             const header = document.querySelector('header');
             if (window.scrollY > 50) {

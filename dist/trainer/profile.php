@@ -1,169 +1,53 @@
 <?php
 session_start();
+require_once '../classes/Profile.php';
 
-error_reporting(E_ALL);
-ini_set('display_errors', 1);
-
-// Include database connection
-$db_path = '../database/db.php';
-if (!file_exists($db_path)) {
-    die("Error: Database connection file not found.");
-}
-include $db_path;
-
-// Verify connection exists
-if (!isset($conn) || $conn === null) {
-    $conn = getDBConnection();
+if (!isset($_SESSION['user']['id'])) {
+    header("Location: ../../login.php");
+    exit;
 }
 
-// Check if user is logged in
-if (!isset($_SESSION['user']) || !isset($_SESSION['user']['id'])) {
-    header("Location: ../../_userlogin.php");
-    exit();
-}
+$profile = new Profile($_SESSION['user']['id']);
+$user = $profile->getUser();
 
-// Get logged-in user ID
-$user_id = $_SESSION['user']['id'];
-
-// Fetch user profile
-$user_sql = "SELECT * FROM users WHERE id = ?";
-$user_stmt = $conn->prepare($user_sql);
-$user_stmt->bind_param("i", $user_id);
-$user_stmt->execute();
-$user_result = $user_stmt->get_result();
-$user = $user_result->fetch_assoc();
-
-if (!$user) {
-    die("Error: User not found in database.");
-}
-
-// Handle profile update
+// ✅ Update profile info
 if (isset($_POST['update_profile'])) {
-    $username = $_POST['name']; // form field still named 'name'
-    $email = $_POST['email'];
-    $phone = $_POST['phone'];
-    $address = $_POST['address'];
-    $emergency_contact = $_POST['emergency_contact'];
-    $emergency_phone = $_POST['emergency_phone'];
-
-    $update_sql = "UPDATE users SET 
-                       username = ?, 
-                       email = ?, 
-                       phone = ?, 
-                       address = ?, 
-                       emergency_contact = ?, 
-                       emergency_phone = ?
-                       WHERE id = ?";
-    
-    $update_stmt = $conn->prepare($update_sql);
-    $update_stmt->bind_param("ssssssi", $username, $email, $phone, $address, $emergency_contact, $emergency_phone, $user_id);
-    
-    if ($update_stmt->execute()) {
-        $_SESSION['success_message'] = "Profile updated successfully!";
-        $_SESSION['user']['username'] = $username;
-        header("Location: profile.php");
-        exit();
-    } else {
-        $error_message = "Failed to update profile.";
-    }
+    $result = $profile->updateProfile($_POST);
+    $_SESSION['success_message'] = $result ? "Profile updated successfully!" : "Failed to update profile.";
+    header("Location: profile.php");
+    exit;
 }
 
-// Handle password change
+// ✅ Change password
 if (isset($_POST['change_password'])) {
-    $current_password = $_POST['current_password'];
-    $new_password = $_POST['new_password'];
-    $confirm_password = $_POST['confirm_password'];
-    
-    if (password_verify($current_password, $user['password_hash'])) {
-        if ($new_password === $confirm_password) {
-            if (strlen($new_password) >= 6) {
-                $new_password_hash = password_hash($new_password, PASSWORD_DEFAULT);
-                
-                $password_sql = "UPDATE users SET password_hash = ? WHERE id = ?";
-                $password_stmt = $conn->prepare($password_sql);
-                $password_stmt->bind_param("si", $new_password_hash, $user_id);
-                
-                if ($password_stmt->execute()) {
-                    $_SESSION['success_message'] = "Password changed successfully!";
-                    header("Location: profile.php");
-                    exit();
-                } else {
-                    $error_message = "Failed to change password.";
-                }
-            } else {
-                $error_message = "Password must be at least 6 characters long.";
-            }
-        } else {
-            $error_message = "New passwords do not match.";
-        }
+    $result = $profile->changePassword($_POST['current_password'], $_POST['new_password'], $_POST['confirm_password']);
+    if ($result === true) {
+        $_SESSION['success_message'] = "Password changed successfully!";
+        header("Location: profile.php");
+        exit;
     } else {
-        $error_message = "Current password is incorrect.";
+        $error_message = $result;
     }
 }
 
-// Handle profile picture upload
+// ✅ Update picture
 if (isset($_POST['update_picture'])) {
-    if (isset($_FILES['profile_picture']) && $_FILES['profile_picture']['error'] === UPLOAD_ERR_OK) {
-        $upload_dir = '../admin/upload/profiles/';
-        if (!file_exists($upload_dir)) {
-            mkdir($upload_dir, 0777, true);
-        }
-
-        $allowed_types = ['image/jpeg', 'image/png', 'image/jpg'];
-        $file_type = $_FILES['profile_picture']['type'];
-
-        if (in_array($file_type, $allowed_types)) {
-            $file_extension = pathinfo($_FILES['profile_picture']['name'], PATHINFO_EXTENSION);
-            $new_filename = 'user_' . $user_id . '_' . time() . '.' . $file_extension;
-            $upload_path = $upload_dir . $new_filename;
-
-            if (move_uploaded_file($_FILES['profile_picture']['tmp_name'], $upload_path)) {
-                // Delete old picture
-                if ($user['profile_picture'] && file_exists($upload_dir . $user['profile_picture'])) {
-                    unlink($upload_dir . $user['profile_picture']);
-                }
-
-                $picture_sql = "UPDATE users SET profile_picture = ? WHERE id = ?";
-                $picture_stmt = $conn->prepare($picture_sql);
-                $picture_stmt->bind_param("si", $new_filename, $user_id);
-
-                if ($picture_stmt->execute()) {
-                    $_SESSION['success_message'] = "Profile picture updated successfully!";
-                    header("Location: profile.php");
-                    exit();
-                }
-            } else {
-                $error_message = "Failed to upload profile picture.";
-            }
-        } else {
-            $error_message = "Only JPG, JPEG, and PNG files are allowed.";
-        }
+    $result = $profile->updatePicture($_FILES['profile_picture']);
+    if ($result === true) {
+        $_SESSION['success_message'] = "Profile picture updated!";
+        header("Location: profile.php");
+        exit;
     } else {
-        $error_message = "Please select a file to upload.";
+        $error_message = $result;
     }
 }
 
-// Fetch user statistics
-$stats_sql = "SELECT 
-                  COUNT(*) AS total_bookings,
-                  COUNT(DISTINCT user_id) AS total_clients
-              FROM bookings
-              WHERE trainer_id = ?
-                AND status = 'completed'";
-$stats_stmt = $conn->prepare($stats_sql);
-$stats_stmt->bind_param("i", $user_id);
-$stats_stmt->execute();
-$stats = $stats_stmt->get_result()->fetch_assoc();
-
-$total_bookings = $stats['total_bookings'];
-$total_clients = $stats['total_clients'];
-
-
-// Refresh user data
-$user_stmt->execute();
-$user_result = $user_stmt->get_result();
-$user = $user_result->fetch_assoc();
+// ✅ Trainer stats (if trainer)
+if ($user['role'] === 'trainer') {
+    $stats = $profile->getTrainerStats();
+}
 ?>
+
 
 <!DOCTYPE html>
 <html lang="en">
@@ -227,8 +111,8 @@ $user = $user_result->fetch_assoc();
         <div class="profile-header">
             <div class="profile-picture-container">
                 <?php if ($user['profile_picture']): ?>
-                    <img src="../admin/upload/profiles/<?php echo htmlspecialchars($user['profile_picture']); ?>" 
-                         alt="Profile Picture" class="profile-picture">
+                    <img src="../upload/profile/"<?php echo htmlspecialchars($user['profile_picture'] ?? ''); ?>" 
+                        alt="Profile Picture" class="profile-picture">
                 <?php else: ?>
                     <div class="profile-picture-placeholder">
                         <?php echo strtoupper(substr($user['username'], 0, 1)); ?>

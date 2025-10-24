@@ -1,106 +1,148 @@
 <?php
 session_start();
-
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
-// Include database connection
-$db_path = '../database/db.php';
-if (!file_exists($db_path)) {
-    die("Error: Database connection file not found.");
-}
-include $db_path;
+// Include required files
+require_once '../database/db.php';
+require_once '../classes/Booking.php';
 
-// Verify connection exists
-if (!isset($conn) || $conn === null) {
-    die("Error: Database connection failed.");
-}
-
-if (!isset($_SESSION['user']) || !isset($_SESSION['user']['id'])) {
-    header("Location: ../../login.php");
-    exit();
-}
-
-$user_id = $_SESSION['user']['id'];
-$user_name = $_SESSION['user']['username'];
-$user_email = isset($_SESSION['user']['email']) ? $_SESSION['user']['email'] : '';
-
-// Get trainer_id from URL
-if (!isset($_GET['trainer_id']) || empty($_GET['trainer_id'])) {
-    die("Error: No trainer selected.");
-}
-
-$trainer_id = (int)$_GET['trainer_id'];
-
-// Fetch trainer details from users table
-$trainer_sql = "SELECT * FROM users WHERE id = ? AND role = 'trainer'";
-$stmt = $conn->prepare($trainer_sql);
-$stmt->bind_param("i", $trainer_id);
-$stmt->execute();
-$trainer_result = $stmt->get_result();
-
-if ($trainer_result->num_rows === 0) {
-    die("Error: Trainer not found.");
-}
-
-$trainer = $trainer_result->fetch_assoc();
-
-// Handle booking form submission
-if (isset($_POST['submit'])) {
-    $booking_date = $_POST['booking_date'];
-    $booking_time = $_POST['booking_time'];
-    $member_name = $_POST['member_name'];
-    $member_email = $_POST['member_email'];
-    $notes = isset($_POST['notes']) ? $_POST['notes'] : '';
+/**
+ * BookingPageHandler - Handles booking page logic
+ */
+class BookingPageHandler {
+    private $db;
+    private $bookingModel;
+    private $userId;
+    private $userName;
+    private $userEmail;
+    private $trainerId;
+    private $trainer;
+    private $errorMessage;
     
-    // ✅ CHECK FOR CONFLICTS - See if trainer is already booked at this time
-    $conflict_sql = "SELECT id FROM bookings 
-                     WHERE trainer_id = ? 
-                     AND booking_date = ? 
-                     AND booking_time = ? 
-                     AND status != 'cancelled'";
-    
-    $conflict_stmt = $conn->prepare($conflict_sql);
-    $conflict_stmt->bind_param("iss", $trainer_id, $booking_date, $booking_time);
-    $conflict_stmt->execute();
-    $conflict_result = $conflict_stmt->get_result();
-    
-    if ($conflict_result->num_rows > 0) {
-        // Trainer is already booked at this time
-        $error_message = "⚠️ Sorry! " . htmlspecialchars($trainer['username']) . " is already booked on " . 
-                        date('F j, Y', strtotime($booking_date)) . " at " . 
-                        date('g:i A', strtotime($booking_time)) . ". Please choose a different time.";
-    } else {
-        // No conflict - proceed with booking
-        $insert_sql = "INSERT INTO bookings 
-                       (user_id, trainer_id, booking_date, booking_time, member_name, member_email, status, notes, created_at) 
-                       VALUES (?, ?, ?, ?, ?, ?, 'booked', ?, NOW())";
+    public function __construct() {
+        $this->db = Database::getInstance()->getConnection();
+        $this->bookingModel = new Booking();
         
-        $insert_stmt = $conn->prepare($insert_sql);
-        $insert_stmt->bind_param("iisssss", 
-            $user_id, 
-            $trainer_id, 
-            $booking_date, 
-            $booking_time, 
-            $member_name, 
-            $member_email, 
-            $notes
-        );
+        $this->validateSession();
+        $this->loadTrainer();
+    }
+    
+    /**
+     * Validate user session
+     */
+    private function validateSession() {
+        if (!isset($_SESSION['user']) || !isset($_SESSION['user']['id'])) {
+            header("Location: ../../login.php");
+            exit();
+        }
         
-        if ($insert_stmt->execute()) {
-            $booking_id = $insert_stmt->insert_id;
-            $_SESSION['success_message'] = "✅ Booking successful! Your session with " . htmlspecialchars($trainer['username']) . 
-                                          " is scheduled for " . date('M d, Y', strtotime($booking_date)) . 
-                                          " at " . date('g:i A', strtotime($booking_time)) . ".";
+        $this->userId = $_SESSION['user']['id'];
+        $this->userName = $_SESSION['user']['username'];
+        $this->userEmail = $_SESSION['user']['email'] ?? '';
+    }
+    
+    /**
+     * Load trainer information from database
+     */
+    private function loadTrainer() {
+        if (!isset($_GET['trainer_id']) || empty($_GET['trainer_id'])) {
+            die("Error: No trainer selected.");
+        }
+        
+        $this->trainerId = (int)$_GET['trainer_id'];
+        
+        $stmt = $this->db->prepare("SELECT * FROM users WHERE id = ? AND role = 'trainer'");
+        $stmt->bind_param("i", $this->trainerId);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        
+        if ($result->num_rows === 0) {
+            die("Error: Trainer not found.");
+        }
+        
+        $this->trainer = $result->fetch_assoc();
+    }
+    
+    /**
+     * Process booking form submission
+     */
+    public function processBooking() {
+        if (!isset($_POST['submit'])) {
+            return;
+        }
+        
+        $bookingDate = $_POST['booking_date'];
+        $bookingTime = $_POST['booking_time'];
+        $memberName = $_POST['member_name'];
+        $memberEmail = $_POST['member_email'];
+        $notes = $_POST['notes'] ?? '';
+        
+        // Check for conflicts
+        if ($this->bookingModel->hasConflict($this->trainerId, $bookingDate, $bookingTime)) {
+            $this->errorMessage = "⚠️ Sorry! " . htmlspecialchars($this->trainer['username']) . 
+                " is already booked on " . date('F j, Y', strtotime($bookingDate)) . 
+                " at " . date('g:i A', strtotime($bookingTime)) . 
+                ". Please choose a different time.";
+            return;
+        }
+        
+        // Create booking
+        $data = [
+            'user_id' => $this->userId,
+            'trainer_id' => $this->trainerId,
+            'booking_date' => $bookingDate,
+            'booking_time' => $bookingTime,
+            'member_name' => $memberName,
+            'member_email' => $memberEmail,
+            'notes' => $notes,
+            'status' => 'booked'
+        ];
+        
+        $newBookingId = $this->bookingModel->createBooking($data);
+        
+        if ($newBookingId) {
+            $_SESSION['success_message'] = "✅ Booking successful! Your session with " . 
+                htmlspecialchars($this->trainer['username']) . " is scheduled for " . 
+                date('M d, Y', strtotime($bookingDate)) . " at " . 
+                date('g:i A', strtotime($bookingTime)) . ".";
             header("Location: dashboard.php");
             exit();
         } else {
-            $error_message = "Booking failed: " . $insert_stmt->error;
+            $this->errorMessage = "❌ Booking failed. Please try again.";
         }
     }
+    
+    // Getters for view
+    public function getTrainer() {
+        return $this->trainer;
+    }
+    
+    public function getUserName() {
+        return $this->userName;
+    }
+    
+    public function getUserEmail() {
+        return $this->userEmail;
+    }
+    
+    public function getErrorMessage() {
+        return $this->errorMessage;
+    }
+    
+    public function hasError() {
+        return !empty($this->errorMessage);
+    }
+    
+    public function getMinDate() {
+        return date('Y-m-d');
+    }
 }
-?>
 
+// Initialize handler and process booking
+$pageHandler = new BookingPageHandler();
+$pageHandler->processBooking();
+?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -111,20 +153,18 @@ if (isset($_POST['submit'])) {
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;600;700;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="../assets/css/home.css?v=4" />
     <link rel="stylesheet" href="../assets/css/booking.css?v=4" />
-
     <style>
-    .logo-two {
-        font-size: 0.9rem;
-        font-weight: 600;
-        color: #90e0ef;
-        background: rgba(144, 224, 239, 0.1);
-        padding: 6px 16px;
-        border-radius: 20px;
-        border: 1px solid rgba(144, 224, 239, 0.3);
-        margin-left: 15px;
-    }
-</style>
-
+        .logo-two {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: #90e0ef;
+            background: rgba(144, 224, 239, 0.1);
+            padding: 6px 16px;
+            border-radius: 20px;
+            border: 1px solid rgba(144, 224, 239, 0.3);
+            margin-left: 15px;
+        }
+    </style>
 </head>
 <body>
     <header>
@@ -142,9 +182,7 @@ if (isset($_POST['submit'])) {
                 <li><a href="../../logout.php" class="cta-btn">Logout</a></li>
             </ul>
             <div class="mobile-menu">
-                <span></span>
-                <span></span>
-                <span></span>
+                <span></span><span></span><span></span>
             </div>
         </nav>
     </header>
@@ -155,32 +193,32 @@ if (isset($_POST['submit'])) {
             <p>Schedule your personalized training experience</p>
         </div>
 
-        <?php if (isset($error_message)): ?>
-            <div class="error-message"><?php echo $error_message; ?></div>
+        <?php if ($pageHandler->hasError()): ?>
+            <div class="error-message"><?php echo $pageHandler->getErrorMessage(); ?></div>
         <?php endif; ?>
 
         <div class="trainer-info">
-            <h3><?php echo htmlspecialchars($trainer['username']); ?></h3>
-            <p><strong>Specialty:</strong> <?php echo htmlspecialchars($trainer['specialty']); ?></p>
+            <h3><?php echo htmlspecialchars($pageHandler->getTrainer()['username']); ?></h3>
+            <p><strong>Specialty:</strong> <?php echo htmlspecialchars($pageHandler->getTrainer()['specialty']); ?></p>
         </div>
 
         <form method="POST" action="" class="booking-form">
             <div class="form-group">
                 <label for="member_name">Your Name</label>
-                <input type="text" id="member_name" name="member_name" 
-                       value="<?php echo htmlspecialchars($user_name); ?>" required>
+                <input type="text" id="member_name" name="member_name"
+                    value="<?php echo htmlspecialchars($pageHandler->getUserName()); ?>" required>
             </div>
 
             <div class="form-group">
                 <label for="member_email">Your Email</label>
-                <input type="email" id="member_email" name="member_email" 
-                       value="<?php echo htmlspecialchars($user_email); ?>" required>
+                <input type="email" id="member_email" name="member_email"
+                    value="<?php echo htmlspecialchars($pageHandler->getUserEmail()); ?>" required>
             </div>
 
             <div class="form-group">
                 <label for="booking_date">Preferred Date</label>
-                <input type="date" id="booking_date" name="booking_date" 
-                       min="<?php echo date('Y-m-d'); ?>" required>
+                <input type="date" id="booking_date" name="booking_date"
+                    min="<?php echo $pageHandler->getMinDate(); ?>" required>
             </div>
 
             <div class="form-group">
@@ -190,13 +228,10 @@ if (isset($_POST['submit'])) {
 
             <div class="form-group">
                 <label for="notes">Additional Notes (Optional)</label>
-                <textarea id="notes" name="notes" 
-                          placeholder="Any specific goals or requirements?"></textarea>
+                <textarea id="notes" name="notes" placeholder="Any specific goals or requirements?"></textarea>
             </div>
 
-            <button type="submit" name="submit" class="submit-btn">
-                Confirm Booking
-            </button>
+            <button type="submit" name="submit" class="submit-btn">Confirm Booking</button>
         </form>
     </main>
 
@@ -210,9 +245,9 @@ if (isset($_POST['submit'])) {
         window.addEventListener('scroll', function() {
             const header = document.querySelector('header');
             if (window.scrollY > 50) {
-                header.style.background = 'linear-gradient(135deg, rgba(15, 23, 42, 0.98) 0%, rgba(30, 41, 59, 0.98) 100%)';
+                header.style.background = 'linear-gradient(135deg, rgba(15, 23, 42, 0.98), rgba(30, 41, 59, 0.98))';
             } else {
-                header.style.background = 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)';
+                header.style.background = 'linear-gradient(135deg, #0f172a, #1e293b)';
             }
         });
     </script>

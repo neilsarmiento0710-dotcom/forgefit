@@ -30,6 +30,17 @@
         margin-right: auto;
         width: 100%;
     }
+
+    .logo-two {
+        font-size: 0.9rem;
+        font-weight: 600;
+        color: #90e0ef;
+        background: rgba(144, 224, 239, 0.1);
+        padding: 6px 16px;
+        border-radius: 20px;
+        border: 1px solid rgba(144, 224, 239, 0.3);
+        margin-left: 15px;
+    }
     
     /* Dashboard Hero Section */
     .dashboard-hero {

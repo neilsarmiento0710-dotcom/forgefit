@@ -8,11 +8,9 @@ $db_path = '../database/db.php';
 if (!file_exists($db_path)) {
     die("Error: Database connection file not found.");
 }
-include $db_path;
 
-if (!isset($conn) || $conn === null) {
-    $conn = getDBConnection();
-}
+require_once '../database/db.php';
+require_once '../classes/MembershipPlan.php';
 
 // Check if user is logged in as management
 if (!isset($_SESSION['user']) || $_SESSION['user']['role'] !== 'management') {
@@ -20,72 +18,39 @@ if (!isset($_SESSION['user']) || $_SESSION['user']['role'] !== 'management') {
     exit();
 }
 
-// Create membership_plans table if it doesn't exist
-$create_table_sql = "CREATE TABLE IF NOT EXISTS membership_plans (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    plan_type VARCHAR(50) NOT NULL UNIQUE,
-    plan_name VARCHAR(100) NOT NULL,
-    price DECIMAL(10,2) NOT NULL,
-    duration_days INT NOT NULL DEFAULT 30,
-    features TEXT,
-    is_featured TINYINT(1) DEFAULT 0,
-    display_order INT DEFAULT 0,
-    status ENUM('active', 'inactive') DEFAULT 'active',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-)";
-$conn->query($create_table_sql);
+$membershipPlanModel = new MembershipPlan();
 
-// Check if table is empty and insert default plans
-$check_sql = "SELECT COUNT(*) as count FROM membership_plans";
-$check_result = $conn->query($check_sql);
-$count = $check_result->fetch_assoc()['count'];
+// Create table and insert default plans if needed
+$membershipPlanModel->createTable();
 
-if ($count == 0) {
-    $default_plans = [
-        ['basic', 'Basic Plan', 600, 30, 'Gym Access|Cardio Equipment|Locker Room|Free WiFi', 0, 1],
-        ['premium', 'Premium Plan', 1000, 30, 'Everything in Basic|Group Classes|Sauna Access|Nutrition Guidance|Guest Passes (2/month)', 1, 2],
-        ['elite', 'Elite Plan', 1250, 30, 'Everything in Premium|Personal Training (4 sessions)|Priority Booking|Massage Therapy|Unlimited Guest Passes|Exclusive Events', 0, 3]
-    ];
-    
-    foreach ($default_plans as $plan) {
-        $insert_sql = "INSERT INTO membership_plans (plan_type, plan_name, price, duration_days, features, is_featured, display_order) VALUES (?, ?, ?, ?, ?, ?, ?)";
-        $stmt = $conn->prepare($insert_sql);
-        $stmt->bind_param("ssdisii", $plan[0], $plan[1], $plan[2], $plan[3], $plan[4], $plan[5], $plan[6]);
-        $stmt->execute();
-    }
+if ($membershipPlanModel->countPlans() == 0) {
+    $membershipPlanModel->insertDefaultPlans();
 }
-
 // Handle Add/Update Plan
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_plan'])) {
     $plan_id = isset($_POST['plan_id']) ? intval($_POST['plan_id']) : 0;
-    $plan_type = $_POST['plan_type'];
-    $plan_name = $_POST['plan_name'];
-    $price = floatval($_POST['price']);
-    $duration_days = intval($_POST['duration_days']);
-    $features = $_POST['features'];
-    $is_featured = isset($_POST['is_featured']) ? 1 : 0;
-    $display_order = intval($_POST['display_order']);
-    $status = $_POST['status'];
+    
+    $data = [
+        'plan_type' => $_POST['plan_type'],
+        'plan_name' => $_POST['plan_name'],
+        'price' => floatval($_POST['price']),
+        'duration_days' => intval($_POST['duration_days']),
+        'features' => $_POST['features'],
+        'is_featured' => isset($_POST['is_featured']) ? 1 : 0,
+        'display_order' => intval($_POST['display_order']),
+        'status' => $_POST['status']
+    ];
     
     if ($plan_id > 0) {
         // Update existing plan
-        $update_sql = "UPDATE membership_plans SET plan_type = ?, plan_name = ?, price = ?, duration_days = ?, features = ?, is_featured = ?, display_order = ?, status = ? WHERE id = ?";
-        $stmt = $conn->prepare($update_sql);
-        $stmt->bind_param("ssdisiisi", $plan_type, $plan_name, $price, $duration_days, $features, $is_featured, $display_order, $status, $plan_id);
-        
-        if ($stmt->execute()) {
+        if ($membershipPlanModel->updatePlan($plan_id, $data)) {
             $_SESSION['success_message'] = "Plan updated successfully!";
         } else {
             $_SESSION['error_message'] = "Failed to update plan.";
         }
     } else {
         // Add new plan
-        $insert_sql = "INSERT INTO membership_plans (plan_type, plan_name, price, duration_days, features, is_featured, display_order, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
-        $stmt = $conn->prepare($insert_sql);
-        $stmt->bind_param("ssdisiis", $plan_type, $plan_name, $price, $duration_days, $features, $is_featured, $display_order, $status);
-        
-        if ($stmt->execute()) {
+        if ($membershipPlanModel->createPlan($data)) {
             $_SESSION['success_message'] = "Plan added successfully!";
         } else {
             $_SESSION['error_message'] = "Failed to add plan.";
@@ -95,28 +60,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_plan'])) {
     header("Location: member_rates.php");
     exit();
 }
-
 // Handle Delete Plan
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_plan'])) {
     $plan_id = intval($_POST['plan_id']);
     
-    $delete_sql = "DELETE FROM membership_plans WHERE id = ?";
-    $stmt = $conn->prepare($delete_sql);
-    $stmt->bind_param("i", $plan_id);
-    
-    if ($stmt->execute()) {
+    if ($membershipPlanModel->deletePlan($plan_id)) {
         $_SESSION['success_message'] = "Plan deleted successfully!";
     } else {
         $_SESSION['error_message'] = "Failed to delete plan.";
     }
-    $stmt->close();
+    
     header("Location: member_rates.php");
     exit();
 }
 
 // Fetch all membership plans
-$sql = "SELECT * FROM membership_plans ORDER BY display_order ASC, id ASC";
-$result = $conn->query($sql);
+$plans = $membershipPlanModel->getAllPlans();
 ?>
 
 <!doctype html>
@@ -138,216 +97,7 @@ $result = $conn->query($sql);
     <link rel="stylesheet" href="../assets/fonts/material.css" />
     <link rel="stylesheet" href="../assets/css/home.css?v=4"/> 
     <link rel="stylesheet" href="../assets/css/member_dashboard.css" id="main-style-link"/> 
-
-    <style>
-        .modern-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 30px;
-            border-radius: 12px;
-            overflow: hidden;
-            background-color: #0f172a;
-        }
-        .modern-table th {
-            background-color: #1e293b;
-            color: #e2e8f0;
-            text-transform: uppercase;
-            font-size: 0.85rem;
-            letter-spacing: 0.05em;
-            padding: 14px;
-        }
-        .modern-table td {
-            padding: 12px;
-            border-bottom: 1px solid #1e293b;
-            color: #cbd5e1;
-            text-align: center;
-        }
-        .status-badge {
-            padding: 6px 10px;
-            border-radius: 20px;
-            font-weight: 600;
-            font-size: 0.85rem;
-            display: inline-block;
-        }
-        .status-active {
-            background-color: #22c55e;
-            color: #fff;
-        }
-        .status-inactive {
-            background-color: #64748b;
-            color: #fff;
-        }
-        .dashboard-title {
-            text-align: center;
-            margin-top: 40px;
-            color: #f8fafc;
-        }
-        .action-btn {
-            padding: 6px 12px;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 0.85rem;
-            margin: 2px;
-            transition: all 0.3s ease;
-        }
-        .add-btn {
-            background-color: #22c55e;
-            color: white;
-            padding: 10px 20px;
-            font-size: 1rem;
-            margin: 20px 0;
-        }
-        .add-btn:hover {
-            background-color: #16a34a;
-        }
-        .edit-btn {
-            background-color: #3b82f6;
-            color: white;
-        }
-        .edit-btn:hover {
-            background-color: #2563eb;
-        }
-        .delete-btn {
-            background-color: #ef4444;
-            color: white;
-        }
-        .delete-btn:hover {
-            background-color: #dc2626;
-        }
-        .modal {
-            display: none;
-            position: fixed;
-            z-index: 1000;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0,0,0,0.7);
-            overflow-y: auto;
-        }
-        .modal-content {
-            background-color: #1e293b;
-            margin: 3% auto;
-            padding: 30px;
-            border-radius: 12px;
-            width: 90%;
-            max-width: 700px;
-            color: #e2e8f0;
-        }
-        .modal-header {
-            font-size: 1.5rem;
-            margin-bottom: 20px;
-            color: #f8fafc;
-        }
-        .modal-footer {
-            margin-top: 20px;
-            text-align: right;
-        }
-        .close {
-            color: #94a3b8;
-            float: right;
-            font-size: 28px;
-            font-weight: bold;
-            cursor: pointer;
-        }
-        .close:hover {
-            color: #f8fafc;
-        }
-        .form-group {
-            margin-bottom: 20px;
-        }
-        .form-group label {
-            display: block;
-            margin-bottom: 8px;
-            color: #cbd5e1;
-            font-weight: 500;
-        }
-        .form-control {
-            width: 100%;
-            padding: 10px;
-            border-radius: 6px;
-            background-color: #0f172a !important;
-            color: #e2e8f0 !important;
-            border: 1px solid #334155;
-            font-size: 0.95rem;
-            box-sizing: border-box;
-        }
-        .form-control:focus {
-            outline: none;
-            border-color: #3b82f6;
-            background-color: #0f172a !important;
-            color: #e2e8f0 !important;
-        }
-        .form-control:hover {
-            background-color: #0f172a !important;
-            border-color: #475569;
-        }
-        textarea.form-control {
-            min-height: 120px;
-            resize: vertical;
-            font-family: 'Montserrat', sans-serif;
-        }
-        .checkbox-group {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-        .checkbox-group input[type="checkbox"] {
-            width: 20px;
-            height: 20px;
-            cursor: pointer;
-        }
-        .alert {
-            padding: 15px;
-            margin: 20px 0;
-            border-radius: 8px;
-            text-align: center;
-        }
-        .alert-success {
-            background-color: #22c55e;
-            color: white;
-        }
-        .alert-error {
-            background-color: #ef4444;
-            color: white;
-        }
-        .featured-badge {
-            background-color: #facc15;
-            color: #000;
-            padding: 4px 8px;
-            border-radius: 12px;
-            font-size: 0.75rem;
-            font-weight: 700;
-            margin-left: 5px;
-        }
-        .features-list {
-            text-align: left;
-            font-size: 0.85rem;
-            line-height: 1.6;
-        }
-        select.form-control option {
-            background-color: #0f172a;
-            color: #e2e8f0;
-        }
-        .help-text {
-            font-size: 0.85rem;
-            color: #94a3b8;
-            margin-top: 5px;
-        }
-
-        .logo-two {
-            font-size: 0.9rem;
-            font-weight: 600;
-            color: #90e0ef;
-            background: rgba(144, 224, 239, 0.1);
-            padding: 6px 16px;
-            border-radius: 20px;
-            border: 1px solid rgba(144, 224, 239, 0.3);
-            margin-left: 15px;
-        }
-
-    </style>
+    <link rel="stylesheet" href="../assets/css/member_rates.css"/> 
 </head>
 
 <body>
@@ -411,8 +161,8 @@ $result = $conn->query($sql);
                 </tr>
             </thead>
             <tbody>
-                <?php if ($result && $result->num_rows > 0): ?>
-                    <?php while ($row = $result->fetch_assoc()): ?>
+                <?php if (!empty($plans)): ?>
+                    <?php foreach ($plans as $row): ?>
                         <tr>
                             <td>#<?php echo $row['display_order']; ?></td>
                             <td>
@@ -446,7 +196,7 @@ $result = $conn->query($sql);
                                 </button>
                             </td>
                         </tr>
-                    <?php endwhile; ?>
+                    <?php endforeach; ?>
                 <?php else: ?>
                     <tr><td colspan="8" style="color:#94a3b8;">No membership plans found.</td></tr>
                 <?php endif; ?>

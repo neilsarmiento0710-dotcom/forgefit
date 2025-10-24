@@ -1,6 +1,6 @@
 <?php
 session_start();
-require_once 'dist/database/db.php'; // Make sure this contains getDBConnection()
+require_once 'dist/database/db.php';
 
 $error = "";
 
@@ -9,10 +9,11 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     $password = $_POST["password"] ?? "";
 
     if (!empty($login_input) && !empty($password)) {
-        $conn = getDBConnection();
+        // Get database instance using OOP approach
+        $db = Database::getInstance();
 
         // Query users table by username or email
-        $stmt = $conn->prepare("SELECT id, username, email, password_hash, role 
+        $stmt = $db->prepare("SELECT id, username, email, password_hash, role 
                                 FROM users 
                                 WHERE username = ? OR email = ?");
         $stmt->bind_param("ss", $login_input, $login_input);
@@ -52,7 +53,8 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         }
 
         $stmt->close();
-        $conn->close();
+        // Note: With singleton pattern, we don't close the connection
+        // as it may be needed elsewhere. It will close when script ends.
     } else {
         $error = "Please enter both username/email and password.";
     }

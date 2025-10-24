@@ -4,147 +4,64 @@ session_start();
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
-// Include database connection
-$db_path = '../database/db.php';
-if (!file_exists($db_path)) {
-    die("Error: Database connection file not found.");
-}
-include $db_path;
+require_once '../database/db.php';
+require_once '../classes/Membership.php';
+require_once '../classes/Payment.php';
 
-// Verify connection exists
-if (!isset($conn) || $conn === null) {
-    $conn = getDBConnection();
-}
-
-// Check if user is logged in
 if (!isset($_SESSION['user']) || !isset($_SESSION['user']['id'])) {
     header("Location: ../../login.php");
     exit();
 }
 
-// Get user information
 $user_id = $_SESSION['user']['id'];
 $user_name = $_SESSION['user']['username'];
 
-// Sync memberships with payment status
-$update_inactive_sql = "
-    UPDATE memberships m
-    JOIN payments p ON m.payment_id = p.id
-    SET m.status = 'inactive'
-    WHERE p.status = 'pending' AND m.status != 'inactive' AND m.user_id = ?";
-$update_stmt = $conn->prepare($update_inactive_sql);
-$update_stmt->bind_param("i", $user_id);
-$update_stmt->execute();
+$membership = new Membership();
+$payment = new Payment();
 
-// Fetch user's current membership
-$membership_sql = "SELECT * FROM memberships WHERE user_id = ? AND status = 'active' ORDER BY end_date DESC LIMIT 1";
-$membership_stmt = $conn->prepare($membership_sql);
-$membership_stmt->bind_param("i", $user_id);
-$membership_stmt->execute();
-$membership_result = $membership_stmt->get_result();
-$current_membership = $membership_result->fetch_assoc();
+// 🧩 Step 1: Sync inactive memberships based on pending payments
+// This will mark expired memberships as 'inactive'
+$membership->syncInactiveMemberships($user_id);
 
-// Handle payment submission
-if (isset($_POST['purchase_membership'])) {
-    $plan_type = $_POST['plan_type'];
-    $payment_method = $_POST['payment_method'];
-    
-    // Plan prices
-    $plans = [
-        'basic' => ['price' => 600, 'name' => 'Basic Plan', 'duration' => 30],
-        'premium' => ['price' => 1000, 'name' => 'Premium Plan', 'duration' => 30],
-        'elite' => ['price' => 1250, 'name' => 'Elite Plan', 'duration' => 30]
-    ];
-    
-    if (!isset($plans[$plan_type])) {
-        $error_message = "Invalid plan selected.";
-    } else {
-        $plan = $plans[$plan_type];
-        $amount = $plan['price'];
-        
-        // Handle file upload (payment proof)
-        $payment_proof = null;
-        if (isset($_FILES['payment_proof']) && $_FILES['payment_proof']['error'] === UPLOAD_ERR_OK) {
-            $upload_dir = '../uploads/payments/';
-            if (!file_exists($upload_dir)) {
-                mkdir($upload_dir, 0777, true);
-            }
-            
-            $file_extension = pathinfo($_FILES['payment_proof']['name'], PATHINFO_EXTENSION);
-            $new_filename = 'payment_' . $user_id . '_' . time() . '.' . $file_extension;
-            $upload_path = $upload_dir . $new_filename;
-            
-            if (move_uploaded_file($_FILES['payment_proof']['tmp_name'], $upload_path)) {
-                $payment_proof = $new_filename;
-            }
-        }
-        
-        // Calculate dates
-        $start_date = date('Y-m-d');
-        $end_date = date('Y-m-d', strtotime('+' . $plan['duration'] . ' days'));
-        
-        // Insert payment record
-        $payment_sql = "INSERT INTO payments (user_id, amount, payment_method, plan_type, payment_proof, status, created_at) 
-                       VALUES (?, ?, ?, ?, ?, 'pending', NOW())";
-        $payment_stmt = $conn->prepare($payment_sql);
-        $payment_stmt->bind_param("idsss", $user_id, $amount, $payment_method, $plan_type, $payment_proof);
-        
-        if ($payment_stmt->execute()) {
-            $payment_id = $payment_stmt->insert_id;
-            
-            // Create membership record (pending approval)
-            $membership_insert_sql = "INSERT INTO memberships (user_id, plan_type, start_date, end_date, payment_id, status, created_at) 
-                                     VALUES (?, ?, ?, ?, ?, 'pending', NOW())";
-            $membership_insert_stmt = $conn->prepare($membership_insert_sql);
-            $membership_insert_stmt->bind_param("isssi", $user_id, $plan_type, $start_date, $end_date, $payment_id);
-            
-            if ($membership_insert_stmt->execute()) {
-                $_SESSION['success_message'] = "Payment submitted successfully! Your membership will be activated once payment is verified.";
-                header("Location: membership.php");
-                exit();
-            }
+// 🧩 Step 2: Get current active membership
+$current_membership = $membership->getUserActiveMembership($user_id);
+
+// 🧩 Step 3: Handle payment submission
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['purchase_membership'])) {
+    try {
+        $plan_type = $_POST['plan_type'];
+        $payment_method = $_POST['payment_method'];
+
+        // The processPayment method now correctly handles file upload and returns success/error.
+        $payment_result = $payment->processPayment($user_id, $plan_type, $payment_method, $_FILES['payment_proof'] ?? null);
+
+        if ($payment_result['success']) {
+            $_SESSION['success_message'] = $payment_result['message'];
+            header("Location: membership.php");
+            exit();
         } else {
-            $error_message = "Payment submission failed. Please try again.";
+            $error_message = $payment_result['message'];
         }
+    } catch (Exception $e) {
+        // Log the exception for debugging
+        error_log("Payment Error: " . $e->getMessage());
+        $error_message = "Unexpected error during payment: " . $e->getMessage();
     }
 }
 
-// Fetch payment history
-$payments_sql = "SELECT p.*, m.plan_type, m.start_date, m.end_date 
-                 FROM payments p 
-                 LEFT JOIN memberships m ON p.id = m.payment_id 
-                 WHERE p.user_id = ? 
-                 ORDER BY p.created_at DESC 
-                 LIMIT 10";
-$payments_stmt = $conn->prepare($payments_sql);
-$payments_stmt->bind_param("i", $user_id);
-$payments_stmt->execute();
-$payments_result = $payments_stmt->get_result();
-
-?>  
+// 🧩 Step 4: Fetch payment history
+$payment_history = $payment->getUserPaymentHistory($user_id);
+?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <title>Membership & Payment - ForgeFit</title>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;600;700;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="../assets/fonts/phosphor/duotone/style.css" />
     <link rel="stylesheet" href="../assets/css/home.css?v=4" />
     <link rel="stylesheet" href="../assets/css/membership.css" />
-    <style>
-        .logo-two {
-            font-size: 0.9rem;
-            font-weight: 600;
-            color: #90e0ef;
-            background: rgba(144, 224, 239, 0.1);
-            padding: 6px 16px;
-            border-radius: 20px;
-            border: 1px solid rgba(144, 224, 239, 0.3);
-            margin-left: 15px;
-        }
-    </style>
 </head>
 <body>
     <header>
@@ -157,15 +74,10 @@ $payments_result = $payments_stmt->get_result();
                 <li><a href="dashboard.php">Dashboard</a></li>
                 <li><a href="trainers.php">Trainers</a></li>
                 <li><a href="classes.php">Bookings</a></li>
-                <li><a href="membership.php">Membership</a></li>
+                <li><a href="membership.php" class="active">Membership</a></li>
                 <li><a href="profile.php">Profile</a></li>
                 <li><a href="../../logout.php" class="cta-btn">Logout</a></li>
             </ul>
-            <div class="mobile-menu">
-                <span></span>
-                <span></span>
-                <span></span>
-            </div>
         </nav>
     </header>
 
@@ -177,7 +89,7 @@ $payments_result = $payments_stmt->get_result();
         <?php endif; ?>
 
         <?php if (isset($error_message)): ?>
-            <div class="error-message"><?php echo $error_message; ?></div>
+            <div class="error-message"><?php echo htmlspecialchars($error_message); ?></div>
         <?php endif; ?>
 
         <div class="membership-hero">
@@ -210,80 +122,44 @@ $payments_result = $payments_stmt->get_result();
         <?php endif; ?>
 
         <div class="pricing-grid">
-            <!-- Basic Plan -->
-            <div class="pricing-card">
-                <h3>Basic</h3>
-                <div class="price">₱600<span style="font-size: 1rem;">/mo</span></div>
-                <ul class="pricing-features">
-                    <li>✓ Gym Access</li>
-                    <li>✓ Cardio Equipment</li>
-                    <li>✓ Locker Room</li>
-                    <li>✓ Free WiFi</li>
-                </ul>
-                <button class="select-plan-btn" onclick="openPaymentModal('basic', 600, 'Basic Plan')">
-                    Select Plan
-                </button>
-            </div>
-
-            <!-- Premium Plan -->
-            <div class="pricing-card featured">
-                <h3>Premium</h3>
-                <div class="price">₱1000<span style="font-size: 1rem;">/mo</span></div>
-                <ul class="pricing-features">
-                    <li>✓ Everything in Basic</li>
-                    <li>✓ Group Classes</li>
-                    <li>✓ Sauna Access</li>
-                    <li>✓ Nutrition Guidance</li>
-                    <li>✓ Guest Passes (2/month)</li>
-                </ul>
-                <button class="select-plan-btn" onclick="openPaymentModal('premium', 1000, 'Premium Plan')">
-                    Select Plan
-                </button>
-            </div>
-
-            <!-- Elite Plan -->
-            <div class="pricing-card">
-                <h3>Elite</h3>
-                <div class="price">₱1250<span style="font-size: 1rem;">/mo</span></div>
-                <ul class="pricing-features">
-                    <li>✓ Everything in Premium</li>
-                    <li>✓ Personal Training (4 sessions)</li>
-                    <li>✓ Priority Booking</li>
-                    <li>✓ Massage Therapy</li>
-                    <li>✓ Unlimited Guest Passes</li>
-                    <li>✓ Exclusive Events</li>
-                </ul>
-                <button class="select-plan-btn" onclick="openPaymentModal('elite', 1250, 'Elite Plan')">
-                    Select Plan
-                </button>
-            </div>
+            <?php foreach ($payment->getAvailablePlans() as $key => $plan): ?>
+                <div class="pricing-card <?= $key === 'premium' ? 'featured' : '' ?>">
+                    <h3><?= ucfirst($key) ?></h3>
+                    <div class="price">₱<?= $plan['price'] ?><span>/mo</span></div>
+                    <ul class="pricing-features">
+                        <?php foreach ($plan['features'] as $feature): ?>
+                            <li>✓ <?= $feature ?></li>
+                        <?php endforeach; ?>
+                    </ul>
+                    <button class="select-plan-btn" onclick="openPaymentModal('<?= $key ?>', <?= $plan['price'] ?>, '<?= ucfirst($key) ?> Plan')">
+                        Select Plan
+                    </button>
+                </div>
+            <?php endforeach; ?>
         </div>
 
-        <!-- Payment History -->
-        <?php if ($payments_result->num_rows > 0): ?>
+        <?php if (!empty($payment_history)): ?>
             <div class="payment-history">
                 <h3>💳 Payment History</h3>
-                <?php while ($payment = $payments_result->fetch_assoc()): ?>
+                <?php foreach ($payment_history as $payment_item): // Renamed variable to avoid conflict ?>
                     <div class="payment-item">
                         <div>
-                            <strong><?php echo ucfirst($payment['plan_type']); ?> Plan</strong><br>
-                            <small><?php echo date('M d, Y', strtotime($payment['created_at'])); ?></small>
+                            <strong><?= ucfirst($payment_item['plan_type']); ?> Plan</strong><br>
+                            <small><?= date('M d, Y', strtotime($payment_item['payment_date'] ?? $payment_item['created_at'])); ?></small>
                         </div>
+                        <div><strong>₱<?= number_format($payment_item['amount'], 2); ?></strong></div>
                         <div>
-                            <strong>₱<?php echo number_format($payment['amount'], 2); ?></strong>
-                        </div>
-                        <div>
-                            <span class="status-badge <?php echo $payment['status']; ?>">
-                                <?php echo ucfirst($payment['status']); ?>
+                            <span class="status-badge <?= $payment_item['status']; ?>">
+                                <?= ucfirst(str_replace('_', ' ', $payment_item['status'])); ?>
                             </span>
                         </div>
                     </div>
-                <?php endwhile; ?>
+                <?php endforeach; ?>
             </div>
         <?php endif; ?>
     </main>
 
-    <!-- Payment Modal -->
+
     <div id="paymentModal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
@@ -306,7 +182,7 @@ $payments_result = $payments_stmt->get_result();
 
                 <div class="form-group">
                     <label>Payment Method:</label>
-                    <select name="payment_method" required>
+                    <select name="payment_method" id="payment_method" required onchange="togglePaymentProof(this.value)">
                         <option value="">Select Payment Method</option>
                         <option value="gcash">GCash</option>
                         <option value="bank_transfer">Bank Transfer</option>
@@ -314,7 +190,7 @@ $payments_result = $payments_stmt->get_result();
                     </select>
                 </div>
 
-                <div class="payment-instructions">
+                <div id="paymentInstructions" class="payment-instructions" style="display: none;">
                     <h4>📱 GCash Payment</h4>
                     <div class="bank-details">
                         <p><strong>GCash Number:</strong> 0946 540 3747</p>
@@ -329,12 +205,12 @@ $payments_result = $payments_stmt->get_result();
                     </div>
                 </div>
 
-                <div class="form-group">
+                <div class="form-group" id="proofUploadGroup" style="display: none;">
                     <label>Upload Payment Proof (Screenshot/Receipt):</label>
                     <div class="file-upload" onclick="document.getElementById('payment_proof').click()">
                         <p>📎 Click to upload file</p>
                         <small style="color: #64748b;">Accepted: JPG, PNG, PDF (Max 5MB)</small>
-                        <input type="file" id="payment_proof" name="payment_proof" accept="image/*,.pdf" required onchange="displayFileName(this)">
+                        <input type="file" id="payment_proof" name="payment_proof" accept="image/*,.pdf" onchange="displayFileName(this)">
                     </div>
                     <p id="file-name" style="margin-top: 10px; color: #10b981; font-weight: 600;"></p>
                 </div>
@@ -353,25 +229,61 @@ $payments_result = $payments_stmt->get_result();
     </footer>
 
     <script>
+        const paymentModal = document.getElementById('paymentModal');
+        const proofUploadGroup = document.getElementById('proofUploadGroup');
+        const paymentInstructions = document.getElementById('paymentInstructions');
+        const paymentProofInput = document.getElementById('payment_proof');
+
         function openPaymentModal(planType, amount, planName) {
             document.getElementById('plan_type').value = planType;
             document.getElementById('plan_name').value = planName;
             document.getElementById('plan_amount').value = '₱' + amount.toLocaleString();
-            document.getElementById('paymentModal').classList.add('active');
+            
+            // Reset form elements
+            document.getElementById('payment_method').value = '';
+            document.getElementById('file-name').textContent = '';
+            paymentProofInput.value = '';
+            proofUploadGroup.style.display = 'none';
+            paymentInstructions.style.display = 'none';
+            paymentProofInput.removeAttribute('required'); // Unset required initially
+
+            paymentModal.classList.add('active');
         }
 
         function closePaymentModal() {
-            document.getElementById('paymentModal').classList.remove('active');
+            paymentModal.classList.remove('active');
+        }
+        
+        function togglePaymentProof(method) {
+            if (method === 'gcash' || method === 'bank_transfer') {
+                proofUploadGroup.style.display = 'block';
+                paymentInstructions.style.display = 'block';
+                paymentProofInput.setAttribute('required', 'required');
+            } else if (method === 'cash') {
+                proofUploadGroup.style.display = 'none';
+                paymentInstructions.style.display = 'none';
+                paymentProofInput.removeAttribute('required');
+                document.getElementById('file-name').textContent = '';
+                paymentProofInput.value = '';
+            } else {
+                proofUploadGroup.style.display = 'none';
+                paymentInstructions.style.display = 'none';
+                paymentProofInput.removeAttribute('required');
+                document.getElementById('file-name').textContent = '';
+                paymentProofInput.value = '';
+            }
         }
 
         function displayFileName(input) {
             if (input.files && input.files[0]) {
                 document.getElementById('file-name').textContent = '✓ ' + input.files[0].name;
+            } else {
+                document.getElementById('file-name').textContent = '';
             }
         }
 
         // Close modal when clicking outside
-        document.getElementById('paymentModal').addEventListener('click', function(e) {
+        paymentModal.addEventListener('click', function(e) {
             if (e.target === this) {
                 closePaymentModal();
             }
