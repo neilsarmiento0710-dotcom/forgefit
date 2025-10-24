@@ -130,9 +130,9 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             <div class="logo">ForgeFit</div>
             <ul class="nav-links">
                 <li><a href="index.php">Home</a></li>
-                <li><a href="#features">About Us</a></li>
-                <li><a href="#pricing">Pricing</a></li>
-                <li><a href="#contact">Contact</a></li>
+                <li><a href="index.php#features">About Us</a></li>
+                <li><a href="index.php#pricing">Pricing</a></li>
+                <li><a href="index.php#contact">Contact</a></li>
                 <li><a href="login.php" class="cta-btn">Login</a></li>
                 <li><a href="register.php" class="cta-btn">Register</a></li>
             </ul>
@@ -148,7 +148,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         <div class="login-wrapper">
             <!-- Logo -->
             <div class="login-logo">
-                <h1>ForgeFit</h1>
+                <h1>register</h1>
             </div>
             
             <div class="reg-card">
