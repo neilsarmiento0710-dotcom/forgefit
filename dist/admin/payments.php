@@ -38,59 +38,64 @@ $payment->syncPaymentStatuses();
 // === Add New Payment ===
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_payment'])) {
     $conn->begin_transaction();
-    
+
     try {
         $user_id = intval($_POST['user_id']);
         $amount = floatval($_POST['amount']);
         $payment_method = $_POST['payment_method'];
         $status = $_POST['status'];
+        $plan_type = $_POST['plan_type'] ?? null; // ✅ added
         $payment_proof = null;
-        
+
         // Handle file upload
         if (isset($_FILES['payment_proof']) && $_FILES['payment_proof']['error'] === UPLOAD_ERR_OK) {
             $upload_dir = '../uploads/payments/';
             if (!is_dir($upload_dir)) {
                 mkdir($upload_dir, 0755, true);
             }
-            
+
             $file_extension = pathinfo($_FILES['payment_proof']['name'], PATHINFO_EXTENSION);
             $payment_proof = 'payment_' . time() . '_' . uniqid() . '.' . $file_extension;
             $upload_path = $upload_dir . $payment_proof;
-            
+
             if (!move_uploaded_file($_FILES['payment_proof']['tmp_name'], $upload_path)) {
                 throw new Exception("Failed to upload payment proof");
             }
         }
-        
+
         // Create payment
         $payment_data = [
             'user_id' => $user_id,
             'amount' => $amount,
             'payment_method' => $payment_method,
             'status' => $status,
+            'plan_type' => $plan_type, // ✅ added
             'payment_proof' => $payment_proof
         ];
-        
+
         $payment_id = $payment->create($payment_data);
-        
+
         if (!$payment_id) {
             throw new Exception("Failed to create payment");
         }
-        
-        // If status is 'paid', activate membership and user
+
+        // ✅ If payment is paid, activate or create membership
         if ($status === 'paid') {
+            if ($plan_type) {
+                $membership->createOrUpdateMembership($user_id, $plan_type); // ✅ new
+            }
             $membership->activateByUserId($user_id);
             $user->updateStatus($user_id, 'active');
         }
-        
+
         $conn->commit();
         $_SESSION['success_message'] = "Payment added successfully!";
-        
+
     } catch (Exception $e) {
         $conn->rollback();
         $_SESSION['error_message'] = "Failed to add payment: " . $e->getMessage();
     }
-    
+
     header("Location: payments.php");
     exit();
 }
@@ -101,58 +106,61 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_payment'])) {
     $amount = floatval($_POST['amount']);
     $payment_method = $_POST['payment_method'];
     $status = $_POST['status'];
-    // --- FIX 1: Read the 'plan_type' from the POST data ---
-    $plan_type = $_POST['plan_type']; 
-    
+    $plan_type = $_POST['plan_type'] ?? null;
+
     $conn->begin_transaction();
-    
+
     try {
-        // Get current payment info
         $payment_info = $payment->getById($payment_id);
-        
         if (!$payment_info) {
             throw new Exception("Payment not found");
         }
-        
+
         $user_id = $payment_info['user_id'];
         $old_status = $payment_info['status'];
-        
-        // Update payment
+
         $update_data = [
             'amount' => $amount,
             'payment_method' => $payment_method,
             'status' => $status,
-            'plan_type' => $plan_type // --- FIX 2: Include 'plan_type' in update data ---
+            'plan_type' => $plan_type
         ];
-        
+
         if (!$payment->update($payment_id, $update_data)) {
             throw new Exception("Failed to update payment");
         }
-        
-        // If status changed to 'paid', activate membership and user
+
+        // ✅ If changed to paid, ensure membership is created/updated
         if ($status === 'paid' && $old_status !== 'paid') {
+            if ($plan_type) {
+                $membership->createOrUpdateMembership($user_id, $plan_type); // ✅ new
+            }
             $membership->activateByUserId($user_id);
             $user->updateStatus($user_id, 'active');
         }
-        
-        // If status changed from 'paid' to something else, deactivate if no other paid payments
+        // ✅ NEW: If payment is already paid and plan type was changed, update membership plan
+        if ($status === 'paid' && $old_status === 'paid' && $plan_type !== $payment_info['plan_type']) {
+            $membership->createOrUpdateMembership($user_id, $plan_type);
+        }
+
+
+        // If status changed from paid to something else
         if ($status !== 'paid' && $old_status === 'paid') {
             $has_other_paid = $payment->hasOtherPaidPayments($user_id, $payment_id);
-            
             if (!$has_other_paid) {
                 $membership->deactivateByUserId($user_id);
                 $user->updateStatus($user_id, 'inactive');
             }
         }
-        
+
         $conn->commit();
         $_SESSION['success_message'] = "Payment updated successfully!";
-        
+
     } catch (Exception $e) {
         $conn->rollback();
         $_SESSION['error_message'] = "Failed to update payment: " . $e->getMessage();
     }
-    
+
     header("Location: payments.php");
     exit();
 }
@@ -160,13 +168,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_payment'])) {
 // === Delete Payment ===
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_payment'])) {
     $payment_id = intval($_POST['payment_id']);
-    
+
     if ($payment->delete($payment_id)) {
         $_SESSION['success_message'] = "Payment deleted successfully!";
     } else {
         $_SESSION['error_message'] = "Failed to delete payment.";
     }
-    
+
     header("Location: payments.php");
     exit();
 }
@@ -179,21 +187,23 @@ if (isset($_POST['approve_id'])) {
     $conn->begin_transaction();
 
     try {
-        // Get payment info
         $payment_info = $payment->getById($payment_id);
-
         if (!$payment_info) {
             throw new Exception("Payment not found");
         }
 
         $user_id = $payment_info['user_id'];
+        $plan_type = $payment_info['plan_type'] ?? null;
 
-        // Approve payment
         if (!$payment->approve($payment_id, $admin_id)) {
             throw new Exception("Failed to approve payment");
         }
 
-        // Activate memberships and user
+        // ✅ Ensure membership is created or updated
+        if ($plan_type) {
+            $membership->createOrUpdateMembership($user_id, $plan_type);
+        }
+
         $membership->activateByUserId($user_id);
         $user->updateStatus($user_id, 'active');
 
@@ -214,16 +224,12 @@ $records_per_page = 10;
 $current_page = isset($_GET['page']) ? intval($_GET['page']) : 1;
 $offset = ($current_page - 1) * $records_per_page;
 
-// Get total number of payments
 $total_records = $payment->getTotalCount();
 $total_pages = ceil($total_records / $records_per_page);
-
-// Fetch Payments with Pagination
 $payments_list = $payment->getAllWithDetails($records_per_page, $offset);
-
-// Get all members for the dropdown
 $members_list = $user->getMembersList();
 ?>
+
 
 <!doctype html>
 <html lang="en">

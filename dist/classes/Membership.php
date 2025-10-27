@@ -13,15 +13,13 @@ class Membership {
     }
 
     /**
-     * Syncs memberships by setting expired ones to 'inactive' and updating 'paid' pending payments.
-     * Note: This is a simplified sync. A proper system would check for a 'paid' payment 
-     * and automatically create the membership, but we'll focus on expiration here.
+     * Syncs memberships by setting expired ones to 'inactive'
      * @param int|null $user_id (optional, for individual sync)
      * @return bool
      */
     public function syncInactiveMemberships($user_id = null) {
         try {
-            // 1. Expire memberships where end_date has passed
+            // Expire memberships where end_date has passed
             $sql = "UPDATE memberships 
                     SET status = 'inactive' 
                     WHERE end_date < CURDATE() 
@@ -36,12 +34,10 @@ class Membership {
             }
             $stmt->execute();
             $stmt->close();
-            
-            // 2. Note: A more complete system would check 'paid' payments and create/extend a membership here.
 
             return true;
         } catch (Exception $e) {
-            // Log error
+            error_log("syncInactiveMemberships Error: " . $e->getMessage());
             return false;
         }
     }
@@ -59,7 +55,7 @@ class Membership {
         $stmt = $this->conn->prepare(
             "SELECT COUNT(*) AS active_count 
              FROM memberships 
-             WHERE start_date <= ? AND end_date >= ? AND status = 'active'" // Added status check
+             WHERE start_date <= ? AND end_date >= ? AND status = 'active'"
         );
         
         $stmt->bind_param("ss", $date, $date);
@@ -76,7 +72,6 @@ class Membership {
     
     /**
      * Get user's active membership
-     * Checks for 'active' status AND end_date >= today
      * @param int $user_id
      * @return array|null
      */
@@ -101,6 +96,11 @@ class Membership {
         return null;
     }
 
+    /**
+     * Check if user has active membership
+     * @param int $user_id
+     * @return bool
+     */
     public function hasActiveMembership($user_id) {
         $stmt = $this->conn->prepare("
             SELECT id 
@@ -108,7 +108,6 @@ class Membership {
             WHERE user_id = ? 
             AND status = 'active' 
             AND end_date >= CURDATE() 
-            ORDER BY end_date DESC 
             LIMIT 1
         ");
         
@@ -118,7 +117,6 @@ class Membership {
         
         return $result->num_rows > 0;
     }
-
     
     /**
      * Calculate days remaining for membership
@@ -131,7 +129,6 @@ class Membership {
         if ($membership) {
             $today = new DateTime();
             $end_date = new DateTime($membership['end_date']);
-            // Check if end_date is in the future
             if ($end_date > $today) {
                 $interval = $today->diff($end_date);
                 return max(0, $interval->days);
@@ -167,7 +164,6 @@ class Membership {
      * @return int|bool
      */
     public function createMembership($data) {
-        // Corrected 'membership_type' to 'plan_type' to match payment model and common usage
         $stmt = $this->conn->prepare(
             "INSERT INTO memberships 
             (user_id, plan_type, start_date, end_date, status) 
@@ -179,7 +175,7 @@ class Membership {
         $stmt->bind_param(
             "issss",
             $data['user_id'],
-            $data['plan_type'], // Updated column name
+            $data['plan_type'],
             $data['start_date'],
             $data['end_date'],
             $status
@@ -207,7 +203,7 @@ class Membership {
         
         $stmt->bind_param(
             "ssssi",
-            $data['plan_type'], // Updated column name
+            $data['plan_type'],
             $data['start_date'],
             $data['end_date'],
             $data['status'],
@@ -251,53 +247,122 @@ class Membership {
         
         return null;
     }
-/**
- * Add these methods to your existing Membership class
- */
 
-/**
- * Activate all memberships for a user
- */
-public function activateByUserId($user_id) {
-    $sql = "UPDATE memberships SET status = 'active' WHERE user_id = ?";
-    $stmt = $this->conn->prepare($sql);
-    $stmt->bind_param("i", $user_id);
-    
-    return $stmt->execute();
-}
+    /**
+     * Activate all memberships for a user
+     * @param int $user_id
+     * @return bool
+     */
+    public function activateByUserId($user_id) {
+        $sql = "UPDATE memberships SET status = 'active' WHERE user_id = ?";
+        $stmt = $this->conn->prepare($sql);
+        $stmt->bind_param("i", $user_id);
+        
+        return $stmt->execute();
+    }
 
-/**
- * Deactivate all memberships for a user
- */
-public function deactivateByUserId($user_id) {
-    $sql = "UPDATE memberships SET status = 'inactive' WHERE user_id = ?";
-    $stmt = $this->conn->prepare($sql);
-    $stmt->bind_param("i", $user_id);
-    
-    return $stmt->execute();
-}
+    /**
+     * Deactivate all memberships for a user
+     * @param int $user_id
+     * @return bool
+     */
+    public function deactivateByUserId($user_id) {
+        $sql = "UPDATE memberships SET status = 'inactive' WHERE user_id = ?";
+        $stmt = $this->conn->prepare($sql);
+        $stmt->bind_param("i", $user_id);
+        
+        return $stmt->execute();
+    }
 
-/**
- * Get membership by user ID
- */
-public function getByUserId($user_id) {
-    $sql = "SELECT m.*, mp.name as plan_name, mp.duration_days, mp.price
-            FROM memberships m
-            LEFT JOIN membership_plans mp ON m.plan_id = mp.id
-            WHERE m.user_id = ?
-            ORDER BY m.created_at DESC
-            LIMIT 1";
-    
-    $stmt = $this->conn->prepare($sql);
-    $stmt->bind_param("i", $user_id);
-    $stmt->execute();
-    $result = $stmt->get_result();
-    
-    return $result->fetch_assoc();
-}
+    /**
+     * Get membership by user ID
+     * @param int $user_id
+     * @return array|null
+     */
+    public function getByUserId($user_id) {
+        $sql = "SELECT m.*, mp.name as plan_name, mp.duration_days, mp.price
+                FROM memberships m
+                LEFT JOIN membership_plans mp ON m.plan_id = mp.id
+                WHERE m.user_id = ?
+                ORDER BY m.created_at DESC
+                LIMIT 1";
+        
+        $stmt = $this->conn->prepare($sql);
+        $stmt->bind_param("i", $user_id);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        
+        return $result->fetch_assoc();
+    }
 
-/**
- * Check if user has active membership
- */
+    /**
+     * Create or update a user's membership when a payment is made
+     * @param int $user_id
+     * @param string $plan_type
+     * @return bool
+     */
+    public function createOrUpdateMembership($user_id, $plan_type) {
+        try {
+            // 1. Get plan duration based on plan type
+            $duration_days = 30; // Default
+            switch (strtolower($plan_type)) {
+                case 'basic': $duration_days = 30; break;
+                case 'premium': $duration_days = 30; break;
+                case 'elite': $duration_days = 30; break;
+            }
+            
+            $start_date = date('Y-m-d');
+            $end_date = date('Y-m-d', strtotime("+$duration_days days"));
+            
+            // 2. Check if user already has an active membership
+            $stmt = $this->conn->prepare("
+                SELECT id FROM memberships 
+                WHERE user_id = ? 
+                AND status = 'active' 
+                AND end_date >= CURDATE()
+                LIMIT 1
+            ");
+            $stmt->bind_param("i", $user_id);
+            $stmt->execute();
+            $result = $stmt->get_result();
+            
+            if ($result->num_rows > 0) {
+                // User has active membership - UPDATE it
+                $row = $result->fetch_assoc();
+                $membership_id = $row['id'];
+                
+                $updateStmt = $this->conn->prepare("
+                    UPDATE memberships 
+                    SET plan_type = ?, 
+                        start_date = ?, 
+                        end_date = ?, 
+                        status = 'active',
+                        updated_at = NOW() 
+                    WHERE id = ?
+                ");
+                $updateStmt->bind_param("sssi", $plan_type, $start_date, $end_date, $membership_id);
+                $updateStmt->execute();
+                $updateStmt->close();
+                
+            } else {
+                // No active membership - CREATE new one
+                $insertStmt = $this->conn->prepare("
+                    INSERT INTO memberships 
+                    (user_id, plan_type, start_date, end_date, status, created_at) 
+                    VALUES (?, ?, ?, ?, 'active', NOW())
+                ");
+                $insertStmt->bind_param("isss", $user_id, $plan_type, $start_date, $end_date);
+                $insertStmt->execute();
+                $insertStmt->close();
+            }
+            
+            $stmt->close();
+            return true;
+            
+        } catch (Exception $e) {
+            error_log("createOrUpdateMembership Error: " . $e->getMessage());
+            return false;
+        }
+    }
 }
 ?>

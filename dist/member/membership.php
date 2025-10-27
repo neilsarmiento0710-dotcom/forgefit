@@ -35,6 +35,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['purchase_membership']
 
         $payment_result = $payment->processPayment($user_id, $plan_type, $payment_method, $_FILES['payment_proof'] ?? null);
 
+        // ✅ Auto-create or update membership when payment is paid
+        if (!empty($payment_result['status']) && $payment_result['status'] === 'paid') {
+            $membership->createOrUpdateMembership($user_id, $plan_type);
+        }
+
         if ($payment_result['success']) {
             $_SESSION['success_message'] = $payment_result['message'];
             header("Location: membership.php");
@@ -114,29 +119,29 @@ $payment_history = $payment->getUserPaymentHistory($user_id);
         </div>
 
         <?php if ($current_membership): ?>
-            <div class="current-membership">
-                <h3>🎉 Your Current Membership</h3>
-                <div class="membership-details">
-                    <div class="membership-detail">
-                        <strong>Plan:</strong><br>
-                        <?php echo ucfirst($current_membership['plan_type']); ?>
-                    </div>
-                    <div class="membership-detail">
-                        <strong>Start Date:</strong><br>
-                        <?php echo date('M d, Y', strtotime($current_membership['start_date'])); ?>
-                    </div>
-                    <div class="membership-detail">
-                        <strong>End Date:</strong><br>
-                        <?php echo date('M d, Y', strtotime($current_membership['end_date'])); ?>
-                    </div>
-                    <div class="membership-detail">
-                        <strong>Status:</strong><br>
-                        <?php echo ucfirst($current_membership['status']); ?>
-                    </div>
-                </div>
+    <div class="current-membership">
+        <h3>🎉 Your Current Membership</h3>
+        <div class="membership-details">
+            <div class="membership-detail">
+                <strong>Plan:</strong><br>
+                <?php echo ucfirst($current_membership['plan_type']); ?>
             </div>
-        <?php endif; ?>
-
+            <div class="membership-detail">
+                <strong>Start Date:</strong><br>
+                <?php echo date('M d, Y', strtotime($current_membership['start_date'])); ?>
+            </div>
+            <div class="membership-detail">
+                <strong>End Date:</strong><br>
+                <?php echo date('M d, Y', strtotime($current_membership['end_date'])); ?>
+            </div>
+            <div class="membership-detail">
+                <strong>Status:</strong><br>
+                <?php echo ucfirst($current_membership['status']); ?>
+            </div>
+        </div>
+    </div>
+    <?php else: ?>
+        <!-- Only show pricing grid if NO active membership -->
         <div class="pricing-grid">
             <?php foreach ($membershipPlan->getActivePlans() as $plan): ?>
                 <div class="pricing-card <?= !empty($plan['is_featured']) ? 'featured' : '' ?>">
@@ -155,6 +160,7 @@ $payment_history = $payment->getUserPaymentHistory($user_id);
                 </div>
             <?php endforeach; ?>
         </div>
+    <?php endif; ?>
 
         <?php if (!empty($payment_history)): ?>
             <div class="payment-history">
