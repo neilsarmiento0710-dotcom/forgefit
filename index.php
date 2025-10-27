@@ -22,8 +22,8 @@
     <link rel="stylesheet" href="./dist/assets/fonts/feather.css" />
     <link rel="stylesheet" href="./dist/assets/fonts/fontawesome.css" />
     <link rel="stylesheet" href="./dist/assets/fonts/material.css" />
-
     <link rel="stylesheet" href="./dist/assets/css/home.css?v=4" id="main-style-link" />
+    <link rel="stylesheet" href="./dist/assets/css/sidebar.css" />
 </head>
 <body>
     <!-- Header -->
@@ -38,13 +38,25 @@
                 <li><a href="login.php" class="cta-btn">Login</a></li>
                 <li><a href="register.php" class="cta-btn">Register</a></li>
             </ul>
-            <div class="mobile-menu">
+            <div class="mobile-menu" id="mobileMenuBtn">
                 <span></span>
                 <span></span>
                 <span></span>
             </div>
         </nav>
     </header>
+
+    <div class="sidebar" id="sidebar">
+        <button class="sidebar-close" id="sidebarClose">×</button>
+        <ul class="sidebar-menu">
+            <li><a href="#home">Home</a></li>
+            <li><a href="#features">About Us</a></li>
+            <li><a href="#pricing">Pricing</a></li>
+            <li><a href="#contact">Contact</a></li>
+            <li><a href="login.php">Login</a></li>
+            <li><a href="register.php">Register</a></li>
+        </ul>
+    </div>
 
     <!-- Hero Section -->
     <section id="home" class="hero">
@@ -159,21 +171,54 @@
     <script src="./dist/assets/js/theme.js"></script>
     <script src="./dist/assets/js/script.js"></script>
 
-    <script>
-    // Smooth scrolling for navigation links
-    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
-        anchor.addEventListener('click', function (e) {
-            e.preventDefault();
-            const target = document.querySelector(this.getAttribute('href'));
-            if (target) {
-                target.scrollIntoView({
-                    behavior: 'smooth',
-                    block: 'start'
-                });
-            }
-        });
+<script>
+// Smooth scrolling for navigation links
+document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+    anchor.addEventListener('click', function (e) {
+        e.preventDefault();
+        const target = document.querySelector(this.getAttribute('href'));
+        if (target) {
+            target.scrollIntoView({
+                behavior: 'smooth',
+                block: 'start'
+            });
+        }
     });
+});
 
+// Sidebar functionality
+const mobileMenuBtn = document.getElementById('mobileMenuBtn');
+const sidebar = document.getElementById('sidebar');
+const sidebarClose = document.getElementById('sidebarClose');
+
+// Open sidebar
+mobileMenuBtn.addEventListener('click', () => {
+    sidebar.classList.add('active');
+    mobileMenuBtn.classList.add('open');
+});
+
+// Close sidebar with close button
+sidebarClose.addEventListener('click', () => {
+    sidebar.classList.remove('active');
+    mobileMenuBtn.classList.remove('open');
+});
+
+// Close sidebar when clicking on a link
+const sidebarLinks = document.querySelectorAll('.sidebar-menu a');
+sidebarLinks.forEach(link => {
+    link.addEventListener('click', () => {
+        sidebar.classList.remove('active');
+        mobileMenuBtn.classList.remove('open');
+    });
+});
+
+// Close sidebar when clicking outside
+document.addEventListener('click', (e) => {
+    if (!sidebar.contains(e.target) && !mobileMenuBtn.contains(e.target)) {
+        sidebar.classList.remove('active');
+        mobileMenuBtn.classList.remove('open');
+    }
+});
 </script>
 </body>
 </html>

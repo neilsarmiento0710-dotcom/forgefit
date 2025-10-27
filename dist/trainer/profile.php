@@ -60,6 +60,7 @@ if ($user['role'] === 'trainer') {
     <link rel="stylesheet" href="../assets/fonts/phosphor/duotone/style.css" />
     <link rel="stylesheet" href="../assets/css/home.css" />
     <link rel="stylesheet" href="../assets/css/profile.css?v=2" />
+    <link rel="stylesheet" href="../assets/css/sidebar.css" />
 
     <style>
     .logo-two {
@@ -82,19 +83,29 @@ if ($user['role'] === 'trainer') {
                 <div class="logo-two">Trainer</div>
             </div>
             <ul class="nav-links">
-                <li><a href="dashboard.php" class="active">Dashboard</a></li>
-                <li><a href="book.php">Book Client</a></li>
+                <li><a href="dashboard.php">Dashboard</a></li>
+                <li><a href="book.php" class="active">Book Client</a></li>
                 <li><a href="clients.php">My Clients</a></li>
                 <li><a href="profile.php">Profile</a></li>
                 <li><a href="../../logout.php" class="cta-btn">Logout</a></li>
             </ul>
-            <div class="mobile-menu">
-                <span></span>
-                <span></span>
-                <span></span>
-            </div>
+            <div class="mobile-menu" id="mobileMenuBtn">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </div>
         </nav>
     </header>
+        <div class="sidebar" id="sidebar">
+                <button class="sidebar-close" id="sidebarClose">×</button>
+                    <ul class="sidebar-menu">
+                        <li><a href="dashboard.php">Dashboard</a></li>
+                        <li><a href="book.php" class="active">Book Client</a></li>
+                        <li><a href="clients.php">My Clients</a></li>
+                        <li><a href="profile.php">Profile</a></li>
+                        <li><a href="../../logout.php" class="cta-btn">Logout</a></li>
+                    </ul>
+            </div>
 
     <main>
         <?php if (isset($_SESSION['success_message'])): ?>
@@ -345,5 +356,54 @@ if ($user['role'] === 'trainer') {
             }
         });
     </script>
+            <script>
+// Smooth scrolling for navigation links
+document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+    anchor.addEventListener('click', function (e) {
+        e.preventDefault();
+        const target = document.querySelector(this.getAttribute('href'));
+        if (target) {
+            target.scrollIntoView({
+                behavior: 'smooth',
+                block: 'start'
+            });
+        }
+    });
+});
+
+// Sidebar functionality
+const mobileMenuBtn = document.getElementById('mobileMenuBtn');
+const sidebar = document.getElementById('sidebar');
+const sidebarClose = document.getElementById('sidebarClose');
+
+// Open sidebar
+mobileMenuBtn.addEventListener('click', () => {
+    sidebar.classList.add('active');
+    mobileMenuBtn.classList.add('open');
+});
+
+// Close sidebar with close button
+sidebarClose.addEventListener('click', () => {
+    sidebar.classList.remove('active');
+    mobileMenuBtn.classList.remove('open');
+});
+
+// Close sidebar when clicking on a link
+const sidebarLinks = document.querySelectorAll('.sidebar-menu a');
+sidebarLinks.forEach(link => {
+    link.addEventListener('click', () => {
+        sidebar.classList.remove('active');
+        mobileMenuBtn.classList.remove('open');
+    });
+});
+
+// Close sidebar when clicking outside
+document.addEventListener('click', (e) => {
+    if (!sidebar.contains(e.target) && !mobileMenuBtn.contains(e.target)) {
+        sidebar.classList.remove('active');
+        mobileMenuBtn.classList.remove('open');
+    }
+});
+</script>
 </body>
 </html>

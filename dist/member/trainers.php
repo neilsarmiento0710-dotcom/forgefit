@@ -36,6 +36,7 @@ $has_active_membership = $membershipModel->hasActiveMembership($user_id);
     <link rel="stylesheet" href="../assets/fonts/fontawesome.css" />
     <link rel="stylesheet" href="../assets/fonts/material.css" />
     <link rel="stylesheet" href="../assets/css/home.css?v=4" id="main-style-link" />
+    <link rel="stylesheet" href="../assets/css/sidebar.css" />
     <style>
         main {
             margin-top: 100px;
@@ -129,7 +130,7 @@ $has_active_membership = $membershipModel->hasActiveMembership($user_id);
     </style>
 </head>
 <body>
-    <header>
+        <header>
         <nav>
             <div style="display: flex; align-items: center; gap: 15px;">
                 <div class="logo">ForgeFit</div>
@@ -137,17 +138,30 @@ $has_active_membership = $membershipModel->hasActiveMembership($user_id);
             </div>
             <ul class="nav-links">
                 <li><a href="dashboard.php">Dashboard</a></li>
-                <li><a href="trainers.php" class="active">Trainers</a></li>
+                <li><a href="trainers.php">Trainers</a></li>
                 <li><a href="classes.php">Bookings</a></li>
                 <li><a href="membership.php">Membership</a></li>
                 <li><a href="profile.php">Profile</a></li>
                 <li><a href="../../logout.php" class="cta-btn">Logout</a></li>
             </ul>
-            <div class="mobile-menu">
-                <span></span><span></span><span></span>
+            <div class="mobile-menu" id="mobileMenuBtn">
+                <span></span>
+                <span></span>
+                <span></span>
             </div>
         </nav>
     </header>
+        <div class="sidebar" id="sidebar">
+            <button class="sidebar-close" id="sidebarClose">×</button>
+                <ul class="sidebar-menu">
+                    <li><a href="dashboard.php">Dashboard</a></li>
+                    <li><a href="trainers.php">Trainers</a></li>
+                    <li><a href="classes.php">Bookings</a></li>
+                    <li><a href="membership.php">Membership</a></li>
+                    <li><a href="profile.php">Profile</a></li>
+                    <li><a href="../../logout.php" class="cta-btn">Logout</a></li>
+                </ul>
+        </div>
     <main>
         <?php if (isset($_SESSION['success_message'])): ?>
             <div class="success-message">
@@ -199,5 +213,54 @@ $has_active_membership = $membershipModel->hasActiveMembership($user_id);
             <p>&copy; 2025 ForgeFit Gym. All rights reserved.</p>
         </div>
     </footer>
+        <script>
+// Smooth scrolling for navigation links
+document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+    anchor.addEventListener('click', function (e) {
+        e.preventDefault();
+        const target = document.querySelector(this.getAttribute('href'));
+        if (target) {
+            target.scrollIntoView({
+                behavior: 'smooth',
+                block: 'start'
+            });
+        }
+    });
+});
+
+// Sidebar functionality
+const mobileMenuBtn = document.getElementById('mobileMenuBtn');
+const sidebar = document.getElementById('sidebar');
+const sidebarClose = document.getElementById('sidebarClose');
+
+// Open sidebar
+mobileMenuBtn.addEventListener('click', () => {
+    sidebar.classList.add('active');
+    mobileMenuBtn.classList.add('open');
+});
+
+// Close sidebar with close button
+sidebarClose.addEventListener('click', () => {
+    sidebar.classList.remove('active');
+    mobileMenuBtn.classList.remove('open');
+});
+
+// Close sidebar when clicking on a link
+const sidebarLinks = document.querySelectorAll('.sidebar-menu a');
+sidebarLinks.forEach(link => {
+    link.addEventListener('click', () => {
+        sidebar.classList.remove('active');
+        mobileMenuBtn.classList.remove('open');
+    });
+});
+
+// Close sidebar when clicking outside
+document.addEventListener('click', (e) => {
+    if (!sidebar.contains(e.target) && !mobileMenuBtn.contains(e.target)) {
+        sidebar.classList.remove('active');
+        mobileMenuBtn.classList.remove('open');
+    }
+});
+</script>
 </body>
 </html>

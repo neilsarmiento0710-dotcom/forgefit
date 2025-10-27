@@ -1,62 +1,29 @@
 <?php
 session_start();
-require_once 'dist/database/db.php';
+require_once 'dist/classes/Auth.php';
 
+$auth = new Auth();
 $error = "";
 
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
     $login_input = $_POST["username"] ?? "";
     $password = $_POST["password"] ?? "";
-
-    if (!empty($login_input) && !empty($password)) {
-        // Get database instance using OOP approach
-        $db = Database::getInstance();
-
-        // Query users table by username or email
-        $stmt = $db->prepare("SELECT id, username, email, password_hash, role 
-                                FROM users 
-                                WHERE username = ? OR email = ?");
-        $stmt->bind_param("ss", $login_input, $login_input);
-        $stmt->execute();
-        $result = $stmt->get_result();
-
-        if ($result->num_rows === 1) {
-            $user = $result->fetch_assoc();
-
-            // Verify password
-            if (password_verify($password, $user['password_hash'])) {
-                unset($user['password_hash']); // never store password hash in session
-                $_SESSION["user"] = $user;
-                session_regenerate_id(true);
-
-                // Redirect based on role
-                switch ($user['role']) {
-                    case 'management':
-                        header("Location: ./dist/admin/dashboard.php");
-                        break;
-                    case 'trainer':
-                        header("Location: ./dist/trainer/dashboard.php");
-                        break;
-                    case 'member':
-                        header("Location: ./dist/member/dashboard.php");
-                        break;
-                    default:
-                        $error = "Invalid user role configuration.";
-                        exit;
-                }
-                exit;
-            } else {
-                $error = "Invalid username/email or password.";
-            }
+    
+    $result = $auth->login($login_input, $password);
+    
+    if ($result['success']) {
+        $auth->setSession($result['user']);
+        
+        $redirectUrl = $auth->getRedirectUrl($result['user']['role']);
+        
+        if ($redirectUrl) {
+            header("Location: $redirectUrl");
+            exit;
         } else {
-            $error = "Invalid username/email or password.";
+            $error = "Invalid user role configuration.";
         }
-
-        $stmt->close();
-        // Note: With singleton pattern, we don't close the connection
-        // as it may be needed elsewhere. It will close when script ends.
     } else {
-        $error = "Please enter both username/email and password.";
+        $error = $result['error'];
     }
 }
 ?>
@@ -80,6 +47,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     <link rel="stylesheet" href="./dist/assets/css/style.css"  />
     <link rel="stylesheet" href="./dist/assets/css/login.css" />
     <link rel="stylesheet" href="./dist/assets/css/home.css?v=4" id="main-style-link" />
+    <link rel="stylesheet" href="./dist/assets/css/sidebar.css" />
 </head>
 
 <body>
@@ -87,24 +55,39 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         <nav>
             <div class="logo">ForgeFit</div>
             <ul class="nav-links">
-                <li><a href="index.php#home">Home</a></li>
+                <li><a href="index.php">Home</a></li>
                 <li><a href="index.php#features">About Us</a></li>
                 <li><a href="index.php#pricing">Pricing</a></li>
                 <li><a href="index.php#contact">Contact</a></li>
                 <li><a href="login.php" class="cta-btn">Login</a></li>
                 <li><a href="register.php" class="cta-btn">Register</a></li>
             </ul>
+            <div class="mobile-menu" id="mobileMenuBtn">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
         </nav>
     </header>
 
+    <div class="sidebar" id="sidebar">
+        <button class="sidebar-close" id="sidebarClose">×</button>
+        <ul class="sidebar-menu">
+            <li><a href="index.php">Home</a></li>
+            <li><a href="index.php#features">About Us</a></li>
+            <li><a href="index.php#pricing">Pricing</a></li>
+            <li><a href="index.php#contact">Contact</a></li>
+            <li><a href="login.php" class="cta-btn">Login</a></li>
+            <li><a href="register.php" class="cta-btn">Register</a></li>
+        </ul>
+    </div>
+
     <div class="login-main">
         <div class="login-wrapper">
-            <!-- Logo -->
             <div class="login-logo">
                 <h1>Login</h1>
             </div>
 
-            <!-- Login Card -->
             <div class="login-card">
                 <h2>Welcome Back</h2>
 
@@ -148,13 +131,54 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         </div>
     </div>
 
-    <!-- JS -->
-    <script src="./dist/assets/js/plugins/simplebar.min.js"></script>
-    <script src="./dist/assets/js/plugins/popper.min.js"></script>
-    <script src="./dist/assets/js/icon/custom-icon.js"></script>
-    <script src="./dist/assets/js/plugins/feather.min.js"></script>
-    <script src="./dist/assets/js/component.js"></script>
-    <script src="./dist/assets/js/theme.js"></script>
-    <script src="./dist/assets/js/script.js"></script>
+<script>
+// Smooth scrolling for navigation links
+document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+    anchor.addEventListener('click', function (e) {
+        e.preventDefault();
+        const target = document.querySelector(this.getAttribute('href'));
+        if (target) {
+            target.scrollIntoView({
+                behavior: 'smooth',
+                block: 'start'
+            });
+        }
+    });
+});
+
+// Sidebar functionality
+const mobileMenuBtn = document.getElementById('mobileMenuBtn');
+const sidebar = document.getElementById('sidebar');
+const sidebarClose = document.getElementById('sidebarClose');
+
+// Open sidebar
+mobileMenuBtn.addEventListener('click', () => {
+    sidebar.classList.add('active');
+    mobileMenuBtn.classList.add('open');
+});
+
+// Close sidebar with close button
+sidebarClose.addEventListener('click', () => {
+    sidebar.classList.remove('active');
+    mobileMenuBtn.classList.remove('open');
+});
+
+// Close sidebar when clicking on a link
+const sidebarLinks = document.querySelectorAll('.sidebar-menu a');
+sidebarLinks.forEach(link => {
+    link.addEventListener('click', () => {
+        sidebar.classList.remove('active');
+        mobileMenuBtn.classList.remove('open');
+    });
+});
+
+// Close sidebar when clicking outside
+document.addEventListener('click', (e) => {
+    if (!sidebar.contains(e.target) && !mobileMenuBtn.contains(e.target)) {
+        sidebar.classList.remove('active');
+        mobileMenuBtn.classList.remove('open');
+    }
+});
+</script>
 </body>
 </html>

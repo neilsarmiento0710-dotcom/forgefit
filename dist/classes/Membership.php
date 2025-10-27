@@ -251,5 +251,53 @@ class Membership {
         
         return null;
     }
+/**
+ * Add these methods to your existing Membership class
+ */
+
+/**
+ * Activate all memberships for a user
+ */
+public function activateByUserId($user_id) {
+    $sql = "UPDATE memberships SET status = 'active' WHERE user_id = ?";
+    $stmt = $this->conn->prepare($sql);
+    $stmt->bind_param("i", $user_id);
+    
+    return $stmt->execute();
+}
+
+/**
+ * Deactivate all memberships for a user
+ */
+public function deactivateByUserId($user_id) {
+    $sql = "UPDATE memberships SET status = 'inactive' WHERE user_id = ?";
+    $stmt = $this->conn->prepare($sql);
+    $stmt->bind_param("i", $user_id);
+    
+    return $stmt->execute();
+}
+
+/**
+ * Get membership by user ID
+ */
+public function getByUserId($user_id) {
+    $sql = "SELECT m.*, mp.name as plan_name, mp.duration_days, mp.price
+            FROM memberships m
+            LEFT JOIN membership_plans mp ON m.plan_id = mp.id
+            WHERE m.user_id = ?
+            ORDER BY m.created_at DESC
+            LIMIT 1";
+    
+    $stmt = $this->conn->prepare($sql);
+    $stmt->bind_param("i", $user_id);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    
+    return $result->fetch_assoc();
+}
+
+/**
+ * Check if user has active membership
+ */
 }
 ?>

@@ -1,0 +1,112 @@
+/* ================================
+   FULLSCREEN SIDEBAR - FORGEFIT STYLE
+================================ */
+.sidebar {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: 320px;
+  height: 100vh;
+  background: rgba(15, 23, 42, 0.98); /* matches body background */
+  backdrop-filter: blur(10px);
+  transform: translateX(100%);
+  transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding: 2rem;
+  font-family: 'Montserrat', sans-serif; /* matches body font */
+}
+
+.sidebar.active {
+  transform: translateX(0);
+}
+
+/* Close Button */
+.sidebar-close {
+  position: absolute;
+  top: 2rem;
+  right: 2rem;
+  background: none;
+  border: none;
+  color: #fff;
+  font-size: 3rem;
+  cursor: pointer;
+  z-index: 10000;
+  width: 50px;
+  height: 50px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease; /* matches your transition timing */
+  line-height: 1;
+  font-weight: 300;
+}
+
+.sidebar-close:hover {
+  color: #38bdf8; /* matches your brand color */
+  transform: rotate(90deg);
+}
+
+/* Sidebar Menu */
+.sidebar-menu {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  width: 100%;
+  max-width: 500px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.sidebar-menu li {
+  width: 100%;
+}
+
+.sidebar-menu a {
+  display: block;
+  padding: 1.5rem 2rem;
+  font-size: 1.3rem;
+  font-weight: 600; /* matches nav-links font-weight */
+  color: #fff;
+  text-align: left;
+  transition: all 0.3s ease; /* matches your transition timing */
+  border-radius: 0.75rem;
+  border-left: 4px solid transparent;
+}
+
+.sidebar-menu a:hover {
+  background: rgba(56, 189, 248, 0.15); /* matches your hover pattern */
+  border-left: 4px solid #38bdf8; /* matches brand color */
+  color: #38bdf8; /* matches nav-links hover color */
+  padding-left: 2.5rem;
+}
+
+/* Hide sidebar on desktop */
+@media (min-width: 769px) {
+  .sidebar {
+    display: none !important;
+  }
+}
+
+/* Mobile specific styles */
+@media (max-width: 768px) {
+  .sidebar-menu a {
+    font-size: 1.1rem;
+    padding: 1.2rem 1.5rem;
+  }
+  
+  .sidebar-close {
+    top: 1.5rem;
+    right: 1.5rem;
+    font-size: 2.5rem;
+  }
+}
+
+/* Prevent body scroll when sidebar is open */
+body.sidebar-open {
+  overflow: hidden;
+}

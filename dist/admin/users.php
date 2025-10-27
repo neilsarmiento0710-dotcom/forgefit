@@ -148,287 +148,61 @@ function buildPaginationUrl($page, $type) {
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;600;700;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="../assets/css/home.css?v=4"/>
     <link rel="stylesheet" href="../assets/css/member_dashboard.css"/>
-    <style>
-        .modern-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 30px;
-            border-radius: 12px;
-            overflow: hidden;
-            background-color: #0f172a;
-        }
-        .modern-table th {
-            background-color: #1e293b;
-            color: #e2e8f0;
-            text-transform: uppercase;
-            font-size: 0.85rem;
-            letter-spacing: 0.05em;
-            padding: 14px;
-        }
-        .modern-table td {
-            padding: 12px;
-            border-bottom: 1px solid #1e293b;
-            color: #cbd5e1;
-            text-align: center;
-        }
-        .tabs { 
-            display: flex; 
-            gap: 10px; 
-            margin: 20px 0; 
-        }
-        .tab {
-            padding: 8px 16px;
-            border-radius: 8px;
-            background: #0f172a;
-            color: #ffffff;
-            cursor: pointer;
-            font-weight: 600;
-            transition: 0.3s;
-            border: 1px solid #0f172a;
-            text-decoration: none;
-            display: inline-block;
-        }
-        .tab.active {
-            background: #ffffff;
-            color: #0f172a;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-        }
-        .tab:hover {
-            opacity: 0.8;
-        }
-        tr:hover { background: #1e293b; }
-        
-        .action-btn {
-            padding: 6px 12px;
-            margin: 0 4px;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            font-weight: 600;
-            font-size: 0.85rem;
-            transition: 0.3s;
-        }
-        .edit-btn {
-            background: linear-gradient(135deg, #3b82f6, #2563eb);
-            color: white;
-        }
-        .edit-btn:hover {
-            background: linear-gradient(135deg, #2563eb, #1d4ed8);
-        }
-        .delete-btn {
-            background: linear-gradient(135deg, #ef4444, #dc2626);
-            color: white;
-        }
-        .delete-btn:hover {
-            background: linear-gradient(135deg, #dc2626, #b91c1c);
-        }
-        .add-user-btn {
-            background: linear-gradient(135deg, #10b981, #059669);
-            color: white;
-            padding: 10px 20px;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            font-weight: 700;
-            margin: 20px 0;
-        }
-        .add-user-btn:hover {
-            background: linear-gradient(135deg, #059669, #047857);
-        }
-        
-        /* Modal Styles */
-        .modal {
-            display: none;
-            position: fixed;
-            z-index: 1000;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0, 0, 0, 0.8);
-            animation: fadeIn 0.3s ease;
-        }
-        .modal.active {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        .modal-content {
-            background: #1e293b;
-            padding: 30px;
-            border-radius: 12px;
-            max-width: 500px;
-            width: 90%;
-            max-height: 90vh;
-            overflow-y: auto;
-            animation: slideIn 0.3s ease;
-            color: #e2e8f0;
-        }
-        .modal-close {
-            float: right;
-            font-size: 28px;
-            font-weight: bold;
-            color: #94a3b8;
-            cursor: pointer;
-        }
-        .modal-close:hover {
-            color: #e2e8f0;
-        }
-        .form-group {
-            margin: 15px 0;
-        }
-        .form-group label {
-            display: block;
-            margin-bottom: 5px;
-            font-weight: 600;
-            color: #cbd5e1;
-        }
-        .form-group input,
-        .form-group select,
-        .form-group textarea {
-            width: 100%;
-            padding: 10px;
-            border: 1px solid #334155;
-            border-radius: 8px;
-            background: #0f172a;
-            color: #e2e8f0;
-            font-family: 'Montserrat', sans-serif;
-            box-sizing: border-box;
-        }
-        .form-group textarea {
-            resize: vertical;
-            min-height: 80px;
-        }
-        .submit-btn {
-            background: linear-gradient(135deg, #10b981, #059669);
-            color: white;
-            padding: 12px 24px;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            font-weight: 700;
-            width: 100%;
-            margin-top: 10px;
-        }
-        .submit-btn:hover {
-            background: linear-gradient(135deg, #059669, #047857);
-        }
-        .message-box {
-            margin: 15px 0;
-            padding: 12px 16px;
-            border-radius: 10px;
-            font-weight: 600;
-        }
-        .success {
-            background: #dcfce7;
-            color: #166534;
-        }
-        .error {
-            background: #fee2e2;
-            color: #991b1b;
-        }
-        @keyframes fadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
-        }
-        @keyframes slideIn {
-            from { transform: translateY(-50px); opacity: 0; }
-            to { transform: translateY(0); opacity: 1; }
-        }
-        .status-badge {
-            padding: 4px 10px;
-            border-radius: 12px;
-            font-weight: 600;
-            font-size: 0.8rem;
-        }
-        .status-active {
-            background: #dcfce7;
-            color: #166534;
-        }
-        .status-inactive {
-            background: #fee2e2;
-            color: #991b1b;
-        }
-
-        .pagination {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            gap: 10px;
-            margin: 30px 0;
-            padding: 20px 0;
-            width: 100%;
-        }
-        .pagination a, .pagination span {
-            padding: 10px 16px;
-            background-color: #1e293b;
-            color: #e2e8f0;
-            text-decoration: none;
-            border-radius: 6px;
-            transition: all 0.3s ease;
-        }
-        .pagination a:hover {
-            background-color: #3b82f6;
-        }
-        .pagination .active {
-            background-color: #3b82f6;
-            font-weight: 600;
-        }
-        .pagination .disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-            pointer-events: none;
-        }
-
-        .logo-two {
-            font-size: 0.9rem;
-            font-weight: 600;
-            color: #90e0ef;
-            background: rgba(144, 224, 239, 0.1);
-            padding: 6px 16px;
-            border-radius: 20px;
-            border: 1px solid rgba(144, 224, 239, 0.3);
-            margin-left: 15px;
-        }
-    </style>
+    <link rel="stylesheet" href="../assets/css/users_a.css"/>
+    <link rel="stylesheet" href="../assets/css/sidebar.css" />
 </head>
+
 <body>
-<header>
-    <nav>
-         <div style="display: flex; align-items: center; gap: 15px;">
-            <div class="logo">ForgeFit</div>
-            <div class="logo-two">Admin</div>
-        </div>
-        <ul class="nav-links">
-                <li><a href="dashboard.php">Dashboard</a></li>
+    <header>
+        <nav>
+            <div style="display: flex; align-items: center; gap: 15px;">
+                <div class="logo">ForgeFit</div>
+                <div class="logo-two">Admin</div>
+            </div>
+            <ul class="nav-links">
+                <li><a href="dashboard.php" class="active">Dashboard</a></li>
                 <li><a href="bookings.php">Bookings</a></li>
                 <li><a href="users.php">Users</a></li>
                 <li><a href="payments.php">Payments</a></li>
                 <li><a href="member_rates.php">Membership Rates</a></li>
                 <li><a href="../../logout.php" class="cta-btn">Logout</a></li>
-        </ul>
-    </nav>
-</header>
+            </ul>
+            <div class="mobile-menu" id="mobileMenuBtn">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </nav>
+    </header>
+        <div class="sidebar" id="sidebar">
+            <button class="sidebar-close" id="sidebarClose">×</button>
+            <ul class="sidebar-menu">
+                <li><a href="dashboard.php" class="active">Dashboard</a></li>
+                <li><a href="bookings.php">Bookings</a></li>
+                <li><a href="users.php">Users</a></li>
+                <li><a href="payments.php">Payments</a></li>
+                <li><a href="member_rates.php">Membership Rates</a></li>
+                <li><a href="../../logout.php" class="cta-btn">Logout</a></li>
+            </ul>
+        </div>
 
 <main>
     <div class="dashboard-hero">
-        <h1 class="dashboard-title">👥 Users Management</h1>
-        <p style="color:#64748b;">Full admin access to manage all users, members, and trainers.</p>
+        <h1 class="dashboard-title" style="text-align: center;">Users Management</h1>
     </div>
-
     <?php if (isset($_SESSION['success_message'])): ?>
         <div class="message-box success"><?php echo htmlspecialchars($_SESSION['success_message']); unset($_SESSION['success_message']); ?></div>
     <?php elseif (isset($_SESSION['error_message'])): ?>
         <div class="message-box error"><?php echo htmlspecialchars($_SESSION['error_message']); unset($_SESSION['error_message']); ?></div>
     <?php endif; ?>
 
-    <button class="add-user-btn" onclick="openAddUserModal()">➕ Add New User</button>
-
     <div class="tabs">
         <a href="?tab=members&members_page=<?php echo $members_page; ?>" class="tab <?php echo $active_tab === 'members' ? 'active' : ''; ?>">Members (<?php echo $total_members; ?>)</a>
         <a href="?tab=trainers&trainers_page=<?php echo $trainers_page; ?>" class="tab <?php echo $active_tab === 'trainers' ? 'active' : ''; ?>">Trainers (<?php echo $total_trainers; ?>)</a>
+        <button class="action-btn edit-btn" onclick="openAddModal()" style="font-size: 0.9rem;">
+            Add New User
+        </button>
     </div>
-
     <!-- Members Table -->
     <div class="table-container" id="members-table" style="display: <?php echo $active_tab === 'members' ? 'block' : 'none'; ?>;">
         <table class="modern-table">
@@ -778,7 +552,7 @@ function buildPaginationUrl($page, $type) {
         document.getElementById('editModal').classList.remove('active');
     }
 
-    function openAddUserModal() {
+    function openAddModal() {
         document.getElementById('addModal').classList.add('active');
         toggleAddRoleFields();
     }
@@ -828,6 +602,77 @@ function buildPaginationUrl($page, $type) {
             closeAddModal();
         }
     });
+</script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const mobileMenu = document.querySelector('.mobile-menu');
+            const navLinks = document.querySelector('.nav-links');
+            
+            if (mobileMenu) {
+                mobileMenu.addEventListener('click', function() {
+                    navLinks.classList.toggle('active');
+                });
+            }
+
+            // Header background change on scroll
+            window.addEventListener('scroll', function() {
+                const header = document.querySelector('header');
+                if (window.scrollY > 50) {
+                    header.style.background = 'linear-gradient(135deg, rgba(15, 23, 42, 0.98) 0%, rgba(30, 41, 59, 0.98) 100%)';
+                } else {
+                    header.style.background = 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)';
+                }
+            });
+        });
+    </script>
+    <script>
+// Smooth scrolling for navigation links
+document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+    anchor.addEventListener('click', function (e) {
+        e.preventDefault();
+        const target = document.querySelector(this.getAttribute('href'));
+        if (target) {
+            target.scrollIntoView({
+                behavior: 'smooth',
+                block: 'start'
+            });
+        }
+    });
+});
+
+// Sidebar functionality
+const mobileMenuBtn = document.getElementById('mobileMenuBtn');
+const sidebar = document.getElementById('sidebar');
+const sidebarClose = document.getElementById('sidebarClose');
+
+// Open sidebar
+mobileMenuBtn.addEventListener('click', () => {
+    sidebar.classList.add('active');
+    mobileMenuBtn.classList.add('open');
+});
+
+// Close sidebar with close button
+sidebarClose.addEventListener('click', () => {
+    sidebar.classList.remove('active');
+    mobileMenuBtn.classList.remove('open');
+});
+
+// Close sidebar when clicking on a link
+const sidebarLinks = document.querySelectorAll('.sidebar-menu a');
+sidebarLinks.forEach(link => {
+    link.addEventListener('click', () => {
+        sidebar.classList.remove('active');
+        mobileMenuBtn.classList.remove('open');
+    });
+});
+
+// Close sidebar when clicking outside
+document.addEventListener('click', (e) => {
+    if (!sidebar.contains(e.target) && !mobileMenuBtn.contains(e.target)) {
+        sidebar.classList.remove('active');
+        mobileMenuBtn.classList.remove('open');
+    }
+});
 </script>
 </body>
 </html>

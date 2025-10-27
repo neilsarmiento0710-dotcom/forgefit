@@ -10,6 +10,12 @@ if (!file_exists($db_path)) {
 }
 require_once $db_path;
 
+// Include class files
+require_once '../classes/Payment.php';
+require_once '../classes/Membership.php';
+require_once '../classes/User.php';
+require_once '../classes/MembershipPlan.php';
+
 // Ensure DB connection
 if (!isset($conn) || $conn === null) {
     $conn = getDBConnection();
@@ -21,20 +27,73 @@ if (!isset($_SESSION['user']) || $_SESSION['user']['role'] !== 'management') {
     exit();
 }
 
-// === AUTO-SYNC: Ensure all "paid" payments have "active" memberships ===
-// Note: Memberships are linked via user_id, not payment_id
-$sync_sql = "UPDATE memberships m
-             INNER JOIN payments p ON m.user_id = p.user_id
-             SET m.status = 'active'
-             WHERE p.status = 'paid' AND m.status != 'active'";
-$conn->query($sync_sql);
+// Initialize objects
+$payment = new Payment($conn);
+$membership = new Membership($conn);
+$user = new User($conn);
 
-// Also sync user status
-$sync_user_sql = "UPDATE users u
-                  INNER JOIN payments p ON u.id = p.user_id
-                  SET u.status = 'active'
-                  WHERE p.status = 'paid' AND u.status != 'active'";
-$conn->query($sync_user_sql);
+// === AUTO-SYNC: Ensure all "paid" payments have "active" memberships ===
+$payment->syncPaymentStatuses();
+
+// === Add New Payment ===
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_payment'])) {
+    $conn->begin_transaction();
+    
+    try {
+        $user_id = intval($_POST['user_id']);
+        $amount = floatval($_POST['amount']);
+        $payment_method = $_POST['payment_method'];
+        $status = $_POST['status'];
+        $payment_proof = null;
+        
+        // Handle file upload
+        if (isset($_FILES['payment_proof']) && $_FILES['payment_proof']['error'] === UPLOAD_ERR_OK) {
+            $upload_dir = '../uploads/payments/';
+            if (!is_dir($upload_dir)) {
+                mkdir($upload_dir, 0755, true);
+            }
+            
+            $file_extension = pathinfo($_FILES['payment_proof']['name'], PATHINFO_EXTENSION);
+            $payment_proof = 'payment_' . time() . '_' . uniqid() . '.' . $file_extension;
+            $upload_path = $upload_dir . $payment_proof;
+            
+            if (!move_uploaded_file($_FILES['payment_proof']['tmp_name'], $upload_path)) {
+                throw new Exception("Failed to upload payment proof");
+            }
+        }
+        
+        // Create payment
+        $payment_data = [
+            'user_id' => $user_id,
+            'amount' => $amount,
+            'payment_method' => $payment_method,
+            'status' => $status,
+            'payment_proof' => $payment_proof
+        ];
+        
+        $payment_id = $payment->create($payment_data);
+        
+        if (!$payment_id) {
+            throw new Exception("Failed to create payment");
+        }
+        
+        // If status is 'paid', activate membership and user
+        if ($status === 'paid') {
+            $membership->activateByUserId($user_id);
+            $user->updateStatus($user_id, 'active');
+        }
+        
+        $conn->commit();
+        $_SESSION['success_message'] = "Payment added successfully!";
+        
+    } catch (Exception $e) {
+        $conn->rollback();
+        $_SESSION['error_message'] = "Failed to add payment: " . $e->getMessage();
+    }
+    
+    header("Location: payments.php");
+    exit();
+}
 
 // === Update Payment ===
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_payment'])) {
@@ -42,69 +101,47 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_payment'])) {
     $amount = floatval($_POST['amount']);
     $payment_method = $_POST['payment_method'];
     $status = $_POST['status'];
+    // --- FIX 1: Read the 'plan_type' from the POST data ---
+    $plan_type = $_POST['plan_type']; 
     
     $conn->begin_transaction();
     
     try {
         // Get current payment info
-        $get_info_sql = "SELECT user_id, status as old_status FROM payments WHERE id = ?";
-        $stmt = $conn->prepare($get_info_sql);
-        $stmt->bind_param("i", $payment_id);
-        $stmt->execute();
-        $result = $stmt->get_result();
-        $payment_info = $result->fetch_assoc();
+        $payment_info = $payment->getById($payment_id);
         
         if (!$payment_info) {
             throw new Exception("Payment not found");
         }
         
         $user_id = $payment_info['user_id'];
-        $old_status = $payment_info['old_status'];
+        $old_status = $payment_info['status'];
         
         // Update payment
-        $update_sql = "UPDATE payments SET amount = ?, payment_method = ?, status = ? WHERE id = ?";
-        $stmt = $conn->prepare($update_sql);
-        $stmt->bind_param("dssi", $amount, $payment_method, $status, $payment_id);
+        $update_data = [
+            'amount' => $amount,
+            'payment_method' => $payment_method,
+            'status' => $status,
+            'plan_type' => $plan_type // --- FIX 2: Include 'plan_type' in update data ---
+        ];
         
-        if (!$stmt->execute()) {
+        if (!$payment->update($payment_id, $update_data)) {
             throw new Exception("Failed to update payment");
         }
         
         // If status changed to 'paid', activate membership and user
         if ($status === 'paid' && $old_status !== 'paid') {
-            // Update all memberships for this user to active
-            $update_membership_sql = "UPDATE memberships SET status = 'active' WHERE user_id = ?";
-            $stmt = $conn->prepare($update_membership_sql);
-            $stmt->bind_param("i", $user_id);
-            $stmt->execute();
-            
-            $update_user_sql = "UPDATE users SET status = 'active' WHERE id = ?";
-            $stmt = $conn->prepare($update_user_sql);
-            $stmt->bind_param("i", $user_id);
-            $stmt->execute();
+            $membership->activateByUserId($user_id);
+            $user->updateStatus($user_id, 'active');
         }
         
-        // If status changed from 'paid' to something else, deactivate membership
+        // If status changed from 'paid' to something else, deactivate if no other paid payments
         if ($status !== 'paid' && $old_status === 'paid') {
-            // Check if user has any other paid payments
-            $check_sql = "SELECT COUNT(*) as paid_count FROM payments WHERE user_id = ? AND status = 'paid' AND id != ?";
-            $stmt = $conn->prepare($check_sql);
-            $stmt->bind_param("ii", $user_id, $payment_id);
-            $stmt->execute();
-            $check_result = $stmt->get_result();
-            $paid_count = $check_result->fetch_assoc()['paid_count'];
+            $has_other_paid = $payment->hasOtherPaidPayments($user_id, $payment_id);
             
-            // Only deactivate if no other paid payments exist
-            if ($paid_count == 0) {
-                $update_membership_sql = "UPDATE memberships SET status = 'inactive' WHERE user_id = ?";
-                $stmt = $conn->prepare($update_membership_sql);
-                $stmt->bind_param("i", $user_id);
-                $stmt->execute();
-                
-                $update_user_sql = "UPDATE users SET status = 'inactive' WHERE id = ?";
-                $stmt = $conn->prepare($update_user_sql);
-                $stmt->bind_param("i", $user_id);
-                $stmt->execute();
+            if (!$has_other_paid) {
+                $membership->deactivateByUserId($user_id);
+                $user->updateStatus($user_id, 'inactive');
             }
         }
         
@@ -124,16 +161,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_payment'])) {
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_payment'])) {
     $payment_id = intval($_POST['payment_id']);
     
-    $delete_sql = "DELETE FROM payments WHERE id = ?";
-    $stmt = $conn->prepare($delete_sql);
-    $stmt->bind_param("i", $payment_id);
-    
-    if ($stmt->execute()) {
+    if ($payment->delete($payment_id)) {
         $_SESSION['success_message'] = "Payment deleted successfully!";
     } else {
         $_SESSION['error_message'] = "Failed to delete payment.";
     }
-    $stmt->close();
+    
     header("Location: payments.php");
     exit();
 }
@@ -141,18 +174,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_payment'])) {
 // === Approve Payment (Quick Action) ===
 if (isset($_POST['approve_id'])) {
     $payment_id = intval($_POST['approve_id']);
-    $admin_id = $_SESSION['user']['id']; // management user ID
+    $admin_id = $_SESSION['user']['id'];
 
     $conn->begin_transaction();
 
     try {
         // Get payment info
-        $get_info_sql = "SELECT user_id FROM payments WHERE id = ?";
-        $stmt = $conn->prepare($get_info_sql);
-        $stmt->bind_param("i", $payment_id);
-        $stmt->execute();
-        $result = $stmt->get_result();
-        $payment_info = $result->fetch_assoc();
+        $payment_info = $payment->getById($payment_id);
 
         if (!$payment_info) {
             throw new Exception("Payment not found");
@@ -160,29 +188,14 @@ if (isset($_POST['approve_id'])) {
 
         $user_id = $payment_info['user_id'];
 
-        // ✅ Update payment: mark as paid + log approver and timestamp
-        $update_payment_sql = "UPDATE payments 
-                               SET status = 'paid', approved_by = ?, approved_at = NOW() 
-                               WHERE id = ?";
-        $stmt = $conn->prepare($update_payment_sql);
-        if (!$stmt) {
-            throw new Exception("Failed to prepare update_payment_sql: " . $conn->error);
-        }
-        $stmt->bind_param("ii", $admin_id, $payment_id);
-        if (!$stmt->execute()) {
-            throw new Exception("Failed to update payment: " . $stmt->error);
+        // Approve payment
+        if (!$payment->approve($payment_id, $admin_id)) {
+            throw new Exception("Failed to approve payment");
         }
 
-        // ✅ Activate memberships and user
-        $update_membership_sql = "UPDATE memberships SET status = 'active' WHERE user_id = ?";
-        $stmt = $conn->prepare($update_membership_sql);
-        $stmt->bind_param("i", $user_id);
-        $stmt->execute();
-
-        $update_user_sql = "UPDATE users SET status = 'active' WHERE id = ?";
-        $stmt = $conn->prepare($update_user_sql);
-        $stmt->bind_param("i", $user_id);
-        $stmt->execute();
+        // Activate memberships and user
+        $membership->activateByUserId($user_id);
+        $user->updateStatus($user_id, 'active');
 
         $conn->commit();
         $_SESSION['success_message'] = "Payment approved successfully by " . htmlspecialchars($_SESSION['user']['username']) . "!";
@@ -196,41 +209,20 @@ if (isset($_POST['approve_id'])) {
     exit();
 }
 
-
 // Pagination setup
 $records_per_page = 10;
 $current_page = isset($_GET['page']) ? intval($_GET['page']) : 1;
 $offset = ($current_page - 1) * $records_per_page;
 
 // Get total number of payments
-$count_sql = "SELECT COUNT(*) as total FROM payments";
-$count_result = $conn->query($count_sql);
-$total_records = $count_result->fetch_assoc()['total'];
+$total_records = $payment->getTotalCount();
 $total_pages = ceil($total_records / $records_per_page);
 
-// === Fetch Payments with Pagination ===
-$sql = "SELECT 
-            p.id, 
-            u.username, 
-            u.email, 
-            p.amount, 
-            p.payment_method, 
-            p.status, 
-            p.payment_proof, 
-            p.created_at, 
-            p.approved_by, 
-            p.approved_at, 
-            m.username AS approved_by_name
-        FROM payments p
-        JOIN users u ON p.user_id = u.id
-        LEFT JOIN users m ON p.approved_by = m.id
-        ORDER BY p.created_at DESC
-        LIMIT ? OFFSET ?";
+// Fetch Payments with Pagination
+$payments_list = $payment->getAllWithDetails($records_per_page, $offset);
 
-$stmt = $conn->prepare($sql);
-$stmt->bind_param("ii", $records_per_page, $offset);
-$stmt->execute();
-$result = $stmt->get_result();
+// Get all members for the dropdown
+$members_list = $user->getMembersList();
 ?>
 
 <!doctype html>
@@ -243,7 +235,6 @@ $result = $stmt->get_result();
     <meta name="description" content="ForgeFit Admin Payments" />
     <meta name="author" content="Sniper 2025" />
     
-    <!-- Fonts & Styles -->
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet"> 
     <link rel="stylesheet" href="../assets/fonts/phosphor/duotone/style.css" />
     <link rel="stylesheet" href="../assets/fonts/tabler-icons.min.css" />
@@ -253,32 +244,53 @@ $result = $stmt->get_result();
     <link rel="stylesheet" href="../assets/css/home.css?v=4"/> 
     <link rel="stylesheet" href="../assets/css/member_dashboard.css" id="main-style-link"/> 
     <link rel="stylesheet" href="../assets/css/payments_a.css"/> 
+    <link rel="stylesheet" href="../assets/css/sidebar.css" />
 </head>
 
 <body>
-<header>
-    <nav>
-         <div style="display: flex; align-items: center; gap: 15px;">
-        <div class="logo">ForgeFit</div>
-        <div class="logo-two">Admin</div>
-    </div>
-        <ul class="nav-links">
-            <li><a href="dashboard.php">Dashboard</a></li>
+    <header>
+        <nav>
+            <div style="display: flex; align-items: center; gap: 15px;">
+                <div class="logo">ForgeFit</div>
+                <div class="logo-two">Admin</div>
+            </div>
+            <ul class="nav-links">
+                <li><a href="dashboard.php" class="active">Dashboard</a></li>
+                <li><a href="bookings.php">Bookings</a></li>
+                <li><a href="users.php">Users</a></li>
+                <li><a href="payments.php">Payments</a></li>
+                <li><a href="member_rates.php">Membership Rates</a></li>
+                <li><a href="../../logout.php" class="cta-btn">Logout</a></li>
+            </ul>
+            <div class="mobile-menu" id="mobileMenuBtn">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </nav>
+    </header>
+    
+    <div class="sidebar" id="sidebar">
+        <button class="sidebar-close" id="sidebarClose">×</button>
+        <ul class="sidebar-menu">
+            <li><a href="dashboard.php" class="active">Dashboard</a></li>
             <li><a href="bookings.php">Bookings</a></li>
             <li><a href="users.php">Users</a></li>
-            <li><a href="payments.php" class="active">Payments</a></li>
+            <li><a href="payments.php">Payments</a></li>
             <li><a href="member_rates.php">Membership Rates</a></li>
             <li><a href="../../logout.php" class="cta-btn">Logout</a></li>
         </ul>
-        <div class="mobile-menu">
-            <span></span><span></span><span></span>
-        </div>
-    </nav>
-</header>
+    </div>
 
 <main>
     <div class="dashboard-hero">
-        <h1 class="dashboard-title">💳 Payments Management</h1>
+        <h1 class="dashboard-title">Payments Management</h1>
+    </div>
+
+    <div style="text-align: right; margin-bottom: 1rem;">
+        <button class="action-btn edit-btn" onclick="openAddPaymentModal()" style="font-size: 0.9rem;">
+            Add New Payment
+        </button>
     </div>
 
     <?php if (isset($_SESSION['success_message'])): ?>
@@ -307,6 +319,7 @@ $result = $stmt->get_result();
                     <th>Member</th>
                     <th>Amount</th>
                     <th>Method</th>
+                    <th>Type</th>
                     <th>Proof</th>
                     <th>Status</th>
                     <th>Date</th>
@@ -316,8 +329,8 @@ $result = $stmt->get_result();
                 </tr>
             </thead>
             <tbody>
-                <?php if ($result && $result->num_rows > 0): ?>
-                    <?php while ($row = $result->fetch_assoc()): ?>
+                <?php if ($payments_list && count($payments_list) > 0): ?>
+                    <?php foreach ($payments_list as $row): ?>
                         <?php
                             $statusClass = '';
                             switch (strtolower($row['status'])) {
@@ -335,11 +348,18 @@ $result = $stmt->get_result();
                             <td>₱<?php echo number_format($row['amount'], 2); ?></td>
                             <td><?php echo ucfirst($row['payment_method']); ?></td>
                             <td>
+                                <?php 
+                                    echo !empty($row['plan_type']) 
+                                        ? ucfirst($row['plan_type']) 
+                                        : '<span class="no-proof">—</span>'; 
+                                ?>
+                            </td>
+                            <td>
                                 <?php if (!empty($row['payment_proof'])): ?>
                                     <a href="#" 
-                                       class="view-proof-btn" 
-                                       onclick="openImageModal('../uploads/payments/<?php echo htmlspecialchars($row['payment_proof']); ?>'); return false;">
-                                       View Proof
+                                        class="view-proof-btn" 
+                                        onclick="openImageModal('../uploads/payments/<?php echo htmlspecialchars($row['payment_proof']); ?>'); return false;">
+                                        View Proof
                                     </a>
                                 <?php else: ?>
                                     <span class="no-proof">No proof</span>
@@ -361,7 +381,6 @@ $result = $stmt->get_result();
                                         : '<span class="no-proof">—</span>';
                                 ?>
                             </td>
-
                             <td>
                                 <?php if ($row['status'] != 'paid'): ?>
                                     <form method="POST" action="" style="display:inline;">
@@ -369,7 +388,16 @@ $result = $stmt->get_result();
                                         <button type="submit" class="action-btn approve-btn">Approve</button>
                                     </form>
                                 <?php endif; ?>
-                                <button class="action-btn edit-btn" onclick="openEditModal(<?php echo $row['id']; ?>, '<?php echo htmlspecialchars($row['username']); ?>', <?php echo $row['amount']; ?>, '<?php echo $row['payment_method']; ?>', '<?php echo $row['status']; ?>')">
+                                <button class="action-btn edit-btn" onclick="openEditModal(
+                                    <?php echo $row['id']; ?>, 
+                                    '<?php echo htmlspecialchars($row['username']); ?>', 
+                                    <?php echo $row['amount']; ?>, 
+                                    '<?php echo $row['payment_method']; ?>', 
+                                    '<?php echo htmlspecialchars($row['status']); ?>', 
+                                    '<?php echo htmlspecialchars($row['plan_type'] ?? ''); ?>', 
+                                    '<?php echo !empty($row['approved_by_name']) ? htmlspecialchars($row['approved_by_name']) : '—'; ?>', 
+                                    '<?php echo !empty($row['approved_at']) ? date('M d, Y h:i A', strtotime($row['approved_at'])) : '—'; ?>'
+                                )">
                                     Edit
                                 </button>
                                 <button class="action-btn delete-btn" onclick="confirmDelete(<?php echo $row['id']; ?>)">
@@ -377,14 +405,13 @@ $result = $stmt->get_result();
                                 </button>
                             </td>
                         </tr>
-                    <?php endwhile; ?>
+                    <?php endforeach; ?>
                 <?php else: ?>
-                    <tr><td colspan="8" style="color:#94a3b8;">No payment records found.</td></tr>
+                    <tr><td colspan="10" style="color:#94a3b8;">No payment records found.</td></tr>
                 <?php endif; ?>
             </tbody>
         </table>
 
-        <!-- Pagination -->
         <?php if ($total_pages > 1): ?>
             <div class="pagination">
                 <?php if ($current_page > 1): ?>
@@ -418,9 +445,65 @@ $result = $stmt->get_result();
             </div>
         <?php endif; ?>
     </div>
+
+    <div id="addPaymentModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeAddPaymentModal()">&times;</span>
+            <h2 class="modal-header">Add New Payment</h2>
+            <form method="POST" action="" enctype="multipart/form-data">
+                
+                <div class="form-group">
+                    <label for="add_user_id">Select Member:</label>
+                    <select name="user_id" id="add_user_id" class="form-control" required>
+                        <option value="">-- Select Member --</option>
+                        <?php foreach ($members_list as $member): ?>
+                            <option value="<?php echo $member['id']; ?>">
+                                <?php echo htmlspecialchars($member['username']) . ' (' . htmlspecialchars($member['email']) . ')'; ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="add_amount">Amount (₱):</label>
+                    <input type="number" name="amount" id="add_amount" class="form-control" step="0.01" required min="0">
+                </div>
+                
+                <div class="form-group">
+                    <label for="add_payment_method">Payment Method:</label>
+                    <select name="payment_method" id="add_payment_method" class="form-control" required>
+                        <option value="gcash">GCash</option>
+                        <option value="paymaya">PayMaya</option>
+                        <option value="bank_transfer">Bank Transfer</option>
+                        <option value="cash">Cash</option>
+                        <option value="card">Card</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="add_status">Status:</label>
+                    <select name="status" id="add_status" class="form-control" required>
+                        <option value="pending">Pending</option>
+                        <option value="paid">Paid</option>
+                        <option value="failed">Failed</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="add_payment_proof">Payment Proof (Optional):</label>
+                    <input type="file" name="payment_proof" id="add_payment_proof" class="form-control" accept="image/*">
+                    <small style="color: #94a3b8;">Upload receipt or proof of payment (JPG, PNG, max 5MB)</small>
+                </div>
+                
+                <div class="modal-footer">
+                    <button type="button" class="action-btn" onclick="closeAddPaymentModal()" style="background-color: #64748b;">Cancel</button>
+                    <button type="submit" name="add_payment" class="action-btn edit-btn">Add Payment</button>
+                </div>
+            </form>
+        </div>
+    </div>
 </main>
 
-<!-- Edit Payment Modal -->
 <div id="editModal" class="modal">
     <div class="modal-content">
         <span class="close" onclick="closeEditModal()">&times;</span>
@@ -448,6 +531,15 @@ $result = $stmt->get_result();
                     <option value="card">Card</option>
                 </select>
             </div>
+
+            <div class="form-group">
+                <label for="edit_type">Plan Type:</label>
+                <select name="plan_type" id="edit_type" class="form-control" required>
+                    <option value="basic">Basic</option>
+                    <option value="premium">Premium</option>
+                    <option value="elite">Elite</option>
+                </select>
+            </div>
             
             <div class="form-group">
                 <label for="edit_status">Status:</label>
@@ -456,6 +548,16 @@ $result = $stmt->get_result();
                     <option value="paid">Paid</option>
                     <option value="failed">Failed</option>
                 </select>
+            </div>
+
+            <div class="form-group">
+                <label>Approved By:</label>
+                <input type="text" id="edit_approved_by" class="form-control" readonly style="background-color: #1e293b; color: #94a3b8;">
+            </div>
+
+            <div class="form-group">
+                <label>Approved At:</label>
+                <input type="text" id="edit_approved_at" class="form-control" readonly style="background-color: #1e293b; color: #94a3b8;">
             </div>
             
             <div class="modal-footer">
@@ -466,7 +568,6 @@ $result = $stmt->get_result();
     </div>
 </div>
 
-<!-- Delete Confirmation Modal -->
 <div id="deleteModal" class="modal">
     <div class="modal-content">
         <span class="close" onclick="closeDeleteModal()">&times;</span>
@@ -482,7 +583,6 @@ $result = $stmt->get_result();
     </div>
 </div>
 
-<!-- Image Modal for Payment Proof -->
 <div id="imageModal" class="image-modal">
     <div class="image-modal-content">
         <span class="image-close" onclick="closeImageModal()">&times;</span>
@@ -498,32 +598,27 @@ $result = $stmt->get_result();
 
 <script src="../assets/js/plugins/feather.min.js"></script>
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        const mobileMenu = document.querySelector('.mobile-menu');
-        const navLinks = document.querySelector('.nav-links');
-        if (mobileMenu) {
-            mobileMenu.addEventListener('click', function() {
-                navLinks.classList.toggle('active');
-            });
-        }
-        window.addEventListener('scroll', function() {
-            const header = document.querySelector('header');
-            if (window.scrollY > 50) {
-                header.style.background = 'linear-gradient(135deg, rgba(15, 23, 42, 0.98) 0%, rgba(30, 41, 59, 0.98) 100%)';
-            } else {
-                header.style.background = 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)';
-            }
-        });
-    });
+    function openAddPaymentModal() {
+        document.getElementById('addPaymentModal').style.display = 'block';
+    }
 
-    function openEditModal(id, member, amount, method, status) {
+    function closeAddPaymentModal() {
+        document.getElementById('addPaymentModal').style.display = 'none';
+    }
+
+    // --- FIX 5: Update the JS function to correctly receive 'planType' and set 'edit_type' ---
+    function openEditModal(id, member, amount, method, status, planType, approvedBy, approvedAt) {
         document.getElementById('edit_payment_id').value = id;
         document.getElementById('edit_member').value = member;
         document.getElementById('edit_amount').value = amount;
         document.getElementById('edit_payment_method').value = method;
         document.getElementById('edit_status').value = status;
+        document.getElementById('edit_type').value = planType; // Set the plan type
+        document.getElementById('edit_approved_by').value = approvedBy;
+        document.getElementById('edit_approved_at').value = approvedAt;
         document.getElementById('editModal').style.display = 'block';
     }
+    // --- END FIX 5 ---
 
     function closeEditModal() {
         document.getElementById('editModal').style.display = 'none';
@@ -555,6 +650,7 @@ $result = $stmt->get_result();
         const editModal = document.getElementById('editModal');
         const deleteModal = document.getElementById('deleteModal');
         const imageModal = document.getElementById('imageModal');
+        const addModal = document.getElementById('addPaymentModal');
         
         if (event.target == editModal) {
             closeEditModal();
@@ -565,13 +661,61 @@ $result = $stmt->get_result();
         if (event.target == imageModal) {
             closeImageModal();
         }
+        if (event.target == addModal) {
+            closeAddPaymentModal();
+        }
     }
 
     // Close image modal with Escape key
     document.addEventListener('keydown', function(e) {
         if (e.key === 'Escape') {
             closeImageModal();
+            closeEditModal();
+            closeDeleteModal();
+            closeAddPaymentModal();
         }
+    });
+
+    // Mobile menu and sidebar
+    document.addEventListener('DOMContentLoaded', function() {
+        const mobileMenuBtn = document.getElementById('mobileMenuBtn');
+        const sidebar = document.getElementById('sidebar');
+        const sidebarClose = document.getElementById('sidebarClose');
+
+        mobileMenuBtn.addEventListener('click', () => {
+            sidebar.classList.add('active');
+            mobileMenuBtn.classList.add('open');
+        });
+
+        sidebarClose.addEventListener('click', () => {
+            sidebar.classList.remove('active');
+            mobileMenuBtn.classList.remove('open');
+        });
+
+        const sidebarLinks = document.querySelectorAll('.sidebar-menu a');
+        sidebarLinks.forEach(link => {
+            link.addEventListener('click', () => {
+                sidebar.classList.remove('active');
+                mobileMenuBtn.classList.remove('open');
+            });
+        });
+
+        document.addEventListener('click', (e) => {
+            if (!sidebar.contains(e.target) && !mobileMenuBtn.contains(e.target)) {
+                sidebar.classList.remove('active');
+                mobileMenuBtn.classList.remove('open');
+            }
+        });
+
+        // Header background change on scroll
+        window.addEventListener('scroll', function() {
+            const header = document.querySelector('header');
+            if (window.scrollY > 50) {
+                header.style.background = 'linear-gradient(135deg, rgba(15, 23, 42, 0.98) 0%, rgba(30, 41, 59, 0.98) 100%)';
+            } else {
+                header.style.background = 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)';
+            }
+        });
     });
 </script>
 </body>

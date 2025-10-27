@@ -47,15 +47,16 @@
         }
         .action-btn {
             padding: 6px 12px;
+            margin: 0 4px;
             border: none;
             border-radius: 6px;
             cursor: pointer;
+            font-weight: 600;
             font-size: 0.85rem;
-            margin: 2px;
-            transition: all 0.3s ease;
+            transition: 0.3s;
         }
         .edit-btn {
-            background-color: #3b82f6;
+            background: linear-gradient(135deg, #3b82f6, #2563eb);
             color: white;
         }
         .edit-btn:hover {

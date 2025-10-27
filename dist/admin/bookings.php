@@ -19,6 +19,51 @@ if (!isset($_SESSION['user']) || $_SESSION['user']['role'] !== 'management') {
 }
 
 $bookingModel = new Booking();
+$db = Database::getInstance();
+
+// Handle Add Booking
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_booking'])) {
+    $user_id = intval($_POST['user_id']);
+    $trainer_id = intval($_POST['trainer_id']);
+    $booking_date = $_POST['booking_date'];
+    $booking_time = $_POST['booking_time'];
+    $notes = $_POST['notes'] ?? '';
+    
+    // Get member details
+    $stmt = $db->prepare("SELECT username, email FROM users WHERE id = ?");
+    $stmt->bind_param("i", $user_id);
+    $stmt->execute();
+    $member = $stmt->get_result()->fetch_assoc();
+    
+    if ($member) {
+        // Check for conflicts
+        if ($bookingModel->hasConflict($trainer_id, $booking_date, $booking_time)) {
+            $_SESSION['error_message'] = "This trainer already has a booking at this time.";
+        } else {
+            $data = [
+                'user_id' => $user_id,
+                'trainer_id' => $trainer_id,
+                'booking_date' => $booking_date,
+                'booking_time' => $booking_time,
+                'member_name' => $member['username'],
+                'member_email' => $member['email'],
+                'status' => 'confirmed',
+                'notes' => $notes
+            ];
+            
+            if ($bookingModel->createBooking($data)) {
+                $_SESSION['success_message'] = "Booking added successfully!";
+            } else {
+                $_SESSION['error_message'] = "Failed to add booking.";
+            }
+        }
+    } else {
+        $_SESSION['error_message'] = "Member not found.";
+    }
+    
+    header("Location: bookings.php");
+    exit();
+}
 
 // Status Update
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_status'])) {
@@ -46,6 +91,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_booking'])) {
     header("Location: bookings.php");
     exit();
 }
+
+// Get members and trainers for dropdown
+$members = $db->query("SELECT id, username, email FROM users WHERE role = 'member' ORDER BY username")->fetch_all(MYSQLI_ASSOC);
+$trainers = $db->query("SELECT id, username, specialty FROM users WHERE role = 'trainer' ORDER BY username")->fetch_all(MYSQLI_ASSOC);
 
 // Pagination setup
 $records_per_page = 10;
@@ -79,8 +128,9 @@ $bookings = array_slice($all_bookings, $offset, $records_per_page);
     <link rel="stylesheet" href="../assets/fonts/fontawesome.css" />
     <link rel="stylesheet" href="../assets/fonts/material.css" />
     <link rel="stylesheet" href="../assets/css/home.css?v=4"/> 
-    <link rel="stylesheet" href="../assets/css/member_dashboard.css" id="main-style-link"/> 
-    <link rel="stylesheet" href="../assets/css/bookings_a.css"/>
+    <link rel="stylesheet" href="../assets/css/member_dashboard.css"/> 
+    <link rel="stylesheet" href="../assets/css/bookings_a.css" id="main-style-link"/>
+    <link rel="stylesheet" href="../assets/css/sidebar.css" />
 </head>
 
 <body>
@@ -98,15 +148,33 @@ $bookings = array_slice($all_bookings, $offset, $records_per_page);
             <li><a href="member_rates.php">Membership Rates</a></li>
             <li><a href="../../logout.php" class="cta-btn">Logout</a></li>
         </ul>
-        <div class="mobile-menu">
-            <span></span><span></span><span></span>
+        <div class="mobile-menu" id="mobileMenuBtn">
+                <span></span>
+                <span></span>
+                <span></span>
         </div>
     </nav>
 </header>
+    <div class="sidebar" id="sidebar">
+        <button class="sidebar-close" id="sidebarClose">×</button>
+            <ul class="sidebar-menu">
+                <li><a href="dashboard.php">Dashboard</a></li>
+                <li><a href="bookings.php" class="active">Bookings</a></li>
+                <li><a href="users.php">Users</a></li>
+                <li><a href="payments.php">Payments</a></li>
+                <li><a href="member_rates.php">Membership Rates</a></li>
+                <li><a href="../../logout.php" class="cta-btn">Logout</a></li>
+            </ul>
+    </div>
 
 <main>
     <div class="dashboard-hero">
-        <h1 class="dashboard-title">Bookings Overview</h1>
+        <h1 class="dashboard-title">Bookings Management</h1>
+    </div>
+    <div class="tabs">
+        <button class="action-btn edit-btn" onclick="openAddModal()" style="font-size: 0.9rem;">
+            Add New Booking
+        </button>
     </div>
 
     <?php if (isset($_SESSION['success_message'])): ?>
@@ -217,6 +285,63 @@ $bookings = array_slice($all_bookings, $offset, $records_per_page);
         <?php endif; ?>
 </main>
 
+<!-- Add Booking Modal -->
+<div id="addModal" class="modal">
+    <div class="modal-content">
+        <span class="close" onclick="closeAddModal()">&times;</span>
+        <h2 class="modal-header">Add New Booking</h2>
+        <form method="POST" action="">
+            <div class="form-group">
+                <label for="user_id">Select Member:</label>
+                <select name="user_id" id="user_id" class="status-select" required style="width: 100%; padding: 10px;">
+                    <option value="">-- Choose Member --</option>
+                    <?php foreach ($members as $member): ?>
+                        <option value="<?php echo $member['id']; ?>">
+                            <?php echo htmlspecialchars($member['username']); ?> (<?php echo htmlspecialchars($member['email']); ?>)
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label for="trainer_id">Select Trainer:</label>
+                <select name="trainer_id" id="trainer_id" class="status-select" required style="width: 100%; padding: 10px;">
+                    <option value="">-- Choose Trainer --</option>
+                    <?php foreach ($trainers as $trainer): ?>
+                        <option value="<?php echo $trainer['id']; ?>">
+                            <?php echo htmlspecialchars($trainer['username']); ?> - <?php echo htmlspecialchars($trainer['specialty']); ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label for="booking_date">Booking Date:</label>
+                <input type="date" name="booking_date" id="booking_date" class="status-select" required 
+                       min="<?php echo date('Y-m-d'); ?>" style="width: 100%; padding: 10px;">
+            </div>
+            
+            <div class="form-group">
+                <label for="booking_time">Booking Time:</label>
+                <input type="time" name="booking_time" id="booking_time" class="status-select" required 
+                       style="width: 100%; padding: 10px;">
+            </div>
+            
+            <div class="form-group">
+                <label for="notes">Notes (Optional):</label>
+                <textarea name="notes" id="notes" class="status-select" rows="3" 
+                          placeholder="Add any additional notes..." 
+                          style="width: 100%; padding: 10px; resize: vertical; font-family: inherit;"></textarea>
+            </div>
+            
+            <div class="modal-footer">
+                <button type="button" class="action-btn" onclick="closeAddModal()" style="background-color: #64748b; color: white;">Cancel</button>
+                <button type="submit" name="add_booking" class="action-btn edit-btn">Add Booking</button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <!-- Edit Status Modal -->
 <div id="editModal" class="modal">
     <div class="modal-content">
@@ -283,6 +408,14 @@ $bookings = array_slice($all_bookings, $offset, $records_per_page);
         });
     });
 
+    function openAddModal() {
+        document.getElementById('addModal').style.display = 'block';
+    }
+
+    function closeAddModal() {
+        document.getElementById('addModal').style.display = 'none';
+    }
+
     function openEditModal(bookingId, currentStatus) {
         document.getElementById('edit_booking_id').value = bookingId;
         document.getElementById('status').value = currentStatus.toLowerCase();
@@ -304,8 +437,13 @@ $bookings = array_slice($all_bookings, $offset, $records_per_page);
 
     // Close modals when clicking outside
     window.onclick = function(event) {
+        const addModal = document.getElementById('addModal');
         const editModal = document.getElementById('editModal');
         const deleteModal = document.getElementById('deleteModal');
+        
+        if (event.target == addModal) {
+            closeAddModal();
+        }
         if (event.target == editModal) {
             closeEditModal();
         }
@@ -313,6 +451,77 @@ $bookings = array_slice($all_bookings, $offset, $records_per_page);
             closeDeleteModal();
         }
     }
+</script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const mobileMenu = document.querySelector('.mobile-menu');
+            const navLinks = document.querySelector('.nav-links');
+            
+            if (mobileMenu) {
+                mobileMenu.addEventListener('click', function() {
+                    navLinks.classList.toggle('active');
+                });
+            }
+
+            // Header background change on scroll
+            window.addEventListener('scroll', function() {
+                const header = document.querySelector('header');
+                if (window.scrollY > 50) {
+                    header.style.background = 'linear-gradient(135deg, rgba(15, 23, 42, 0.98) 0%, rgba(30, 41, 59, 0.98) 100%)';
+                } else {
+                    header.style.background = 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)';
+                }
+            });
+        });
+    </script>
+    <script>
+// Smooth scrolling for navigation links
+document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+    anchor.addEventListener('click', function (e) {
+        e.preventDefault();
+        const target = document.querySelector(this.getAttribute('href'));
+        if (target) {
+            target.scrollIntoView({
+                behavior: 'smooth',
+                block: 'start'
+            });
+        }
+    });
+});
+
+// Sidebar functionality
+const mobileMenuBtn = document.getElementById('mobileMenuBtn');
+const sidebar = document.getElementById('sidebar');
+const sidebarClose = document.getElementById('sidebarClose');
+
+// Open sidebar
+mobileMenuBtn.addEventListener('click', () => {
+    sidebar.classList.add('active');
+    mobileMenuBtn.classList.add('open');
+});
+
+// Close sidebar with close button
+sidebarClose.addEventListener('click', () => {
+    sidebar.classList.remove('active');
+    mobileMenuBtn.classList.remove('open');
+});
+
+// Close sidebar when clicking on a link
+const sidebarLinks = document.querySelectorAll('.sidebar-menu a');
+sidebarLinks.forEach(link => {
+    link.addEventListener('click', () => {
+        sidebar.classList.remove('active');
+        mobileMenuBtn.classList.remove('open');
+    });
+});
+
+// Close sidebar when clicking outside
+document.addEventListener('click', (e) => {
+    if (!sidebar.contains(e.target) && !mobileMenuBtn.contains(e.target)) {
+        sidebar.classList.remove('active');
+        mobileMenuBtn.classList.remove('open');
+    }
+});
 </script>
 </body>
 </html>
