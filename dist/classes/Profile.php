@@ -23,6 +23,7 @@ class Profile {
     public function updateProfile($data) {
         $sql = "UPDATE users SET 
                     username = ?, 
+                    name = ?,
                     email = ?, 
                     phone = ?, 
                     address = ?, 
@@ -30,8 +31,9 @@ class Profile {
                     emergency_phone = ?
                 WHERE id = ?";
         $stmt = $this->conn->prepare($sql);
-        $stmt->bind_param("ssssssi", 
+        $stmt->bind_param("sssssssi", 
             $data['username'], 
+            $data['name'], 
             $data['email'], 
             $data['phone'], 
             $data['address'], 

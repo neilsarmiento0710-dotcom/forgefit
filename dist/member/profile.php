@@ -159,6 +159,10 @@ if ($user['role'] === 'member') {
                             <p><?php echo htmlspecialchars($user['username'] ?? ''); ?></p>
                         </div>
                         <div class="info-item">
+                            <label>Full Name</label>
+                            <p><?php echo htmlspecialchars($user['name'] ?? ''); ?></p>
+                        </div>
+                        <div class="info-item">
                             <label>Email</label>
                             <p><?php echo htmlspecialchars($user['email'] ?? ''); ?></p>
                         </div>
@@ -178,6 +182,10 @@ if ($user['role'] === 'member') {
                         <div class="form-group">
                             <label>Username</label>
                             <input type="text" name="username" value="<?php echo htmlspecialchars($user['username'] ?? ''); ?>" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Full Name</label>
+                            <input type="text" name="name" value="<?php echo htmlspecialchars($user['name'] ?? ''); ?>" required>
                         </div>
                         <div class="form-group">
                             <label>Email</label>

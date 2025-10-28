@@ -25,25 +25,13 @@ $bookingModel = new Booking();
 $paymentModel = new Payment();
 $membershipModel = new Membership();
 
-// === DELETE USER ===
-if (isset($_POST['delete_user_id'])) {
-    $user_id = intval($_POST['delete_user_id']);
-    
-    if ($userModel->deleteUser($user_id)) {
-        $_SESSION['success_message'] = "✅ User deleted successfully!";
-    } else {
-        $_SESSION['error_message'] = "❌ Failed to delete user.";
-    }
-    header("Location: users.php");
-    exit();
-}
 
-// === UPDATE USER ===
 if (isset($_POST['update_user'])) {
     $user_id = intval($_POST['user_id']);
 
     $data = [
         'username' => trim($_POST['username']),
+        'name' => trim($_POST['name']),
         'email' => trim($_POST['email']),
         'phone' => trim($_POST['phone']),
         'address' => trim($_POST['address'] ?? ''),
@@ -52,7 +40,6 @@ if (isset($_POST['update_user'])) {
         'specialty' => trim($_POST['specialty'] ?? '')
     ];
 
-    // Only update password if not empty
     if (!empty($_POST['password'])) {
         $data['password'] = password_hash($_POST['password'], PASSWORD_DEFAULT);
     }
@@ -63,7 +50,7 @@ if (isset($_POST['update_user'])) {
         $_SESSION['error_message'] = "❌ Failed to update user.";
     }
     
-    // Preserve pagination and tab state
+    // IMPORTANT: This redirect must happen
     $redirect_params = [];
     if (isset($_GET['members_page'])) {
         $redirect_params[] = 'members_page=' . $_GET['members_page'];
@@ -77,13 +64,14 @@ if (isset($_POST['update_user'])) {
     
     $redirect_url = 'users.php' . (!empty($redirect_params) ? '?' . implode('&', $redirect_params) : '');
     header("Location: " . $redirect_url);
-    exit();
+    exit(); // MUST have exit() here
 }
 
 // === ADD NEW USER ===
 if (isset($_POST['add_user'])) {
     $data = [
         'username' => trim($_POST['username']),
+        'name' => trim($_POST['name']), // NEW: Add name field
         'email' => trim($_POST['email']),
         'password' => $_POST['password'],
         'phone' => trim($_POST['phone']),
@@ -96,6 +84,19 @@ if (isset($_POST['add_user'])) {
         $_SESSION['success_message'] = "✅ New user added successfully!";
     } else {
         $_SESSION['error_message'] = "❌ Failed to add user. Email might already exist.";
+    }
+    header("Location: users.php");
+    exit();
+}
+
+// === DELETE USER ===
+if (isset($_POST['delete_user_id'])) {
+    $user_id = intval($_POST['delete_user_id']);
+    
+    if ($userModel->deleteUser($user_id)) {
+        $_SESSION['success_message'] = "✅ User deleted successfully!";
+    } else {
+        $_SESSION['error_message'] = "❌ Failed to delete user.";
     }
     header("Location: users.php");
     exit();
@@ -205,64 +206,66 @@ function buildPaginationUrl($page, $type) {
     </div>
     <!-- Members Table -->
     <div class="table-container" id="members-table" style="display: <?php echo $active_tab === 'members' ? 'block' : 'none'; ?>;">
-        <table class="modern-table">
-            <thead>
-                <tr>
-                    <th>ID</th>
-                    <th>Username</th>
-                    <th>Email</th>
-                    <th>Phone</th>
-                    <th>Address</th>
-                    <th>Status</th>
-                    <th>Membership</th>
-                    <th>Joined</th>
-                    <th>Actions</th>
-                </tr>
-            </thead>
-            <tbody>
-                <?php if (!empty($members)): ?>
-                    <?php foreach ($members as $member): ?>
-                        <tr>
-                            <td><?php echo htmlspecialchars($member['id']); ?></td>
-                            <td><?php echo htmlspecialchars($member['username']); ?></td>
-                            <td><?php echo htmlspecialchars($member['email']); ?></td>
-                            <td><?php echo htmlspecialchars($member['phone'] ?? '—'); ?></td>
-                            <td><?php echo htmlspecialchars($member['address'] ?? '—'); ?></td>
-                            <td>
-                                <span class="status-badge status-<?php echo htmlspecialchars($member['status']); ?>">
-                                    <?php echo ucfirst(htmlspecialchars($member['status'])); ?>
-                                </span>
-                            </td>
-                            <td>
-                                <?php
-                                    $membership = $membershipModel->getUserLatestMembership($member['id']);
-                                    if ($membership) {
-                                        $status = $membership['status'];
-                                        $end_date = $membership['end_date'];
-                                        
-                                        if ($status === 'active' && strtotime($end_date) < time()) {
-                                            echo '<span style="color:#f59e0b;">Expired</span>';
-                                        } else {
-                                            $color = ($status === 'active') ? '#16a34a' : '#f59e0b';
-                                            echo '<span style="color:' . $color . ';">' . ucfirst(htmlspecialchars($status)) . '</span>';
-                                        }
+    <table class="modern-table">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Name</th>
+                <th>Username</th>
+                <th>Email</th>
+                <th>Phone</th>
+                <th>Address</th>
+                <th>Status</th>
+                <th>Membership</th>
+                <th>Joined</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            <?php if (!empty($members)): ?>
+                <?php foreach ($members as $member): ?>
+                    <tr>
+                        <td><?php echo htmlspecialchars($member['id']); ?></td>
+                        <td><?php echo htmlspecialchars($member['name'] ?? $member['username']); ?></td>
+                        <td><?php echo htmlspecialchars($member['username']); ?></td>
+                        <td><?php echo htmlspecialchars($member['email']); ?></td>
+                        <td><?php echo htmlspecialchars($member['phone'] ?? '—'); ?></td>
+                        <td><?php echo htmlspecialchars($member['address'] ?? '—'); ?></td>
+                        <td>
+                            <span class="status-badge status-<?php echo htmlspecialchars($member['status']); ?>">
+                                <?php echo ucfirst(htmlspecialchars($member['status'])); ?>
+                            </span>
+                        </td>
+                        <td>
+                            <?php
+                                $membership = $membershipModel->getUserLatestMembership($member['id']);
+                                if ($membership) {
+                                    $status = $membership['status'];
+                                    $end_date = $membership['end_date'];
+                                    
+                                    if ($status === 'active' && strtotime($end_date) < time()) {
+                                        echo '<span style="color:#f59e0b;">Expired</span>';
                                     } else {
-                                        echo '<span style="color:#64748b;">None</span>';
+                                        $color = ($status === 'active') ? '#16a34a' : '#f59e0b';
+                                        echo '<span style="color:' . $color . ';">' . ucfirst(htmlspecialchars($status)) . '</span>';
                                     }
-                                ?>
-                            </td>
-                            <td><?php echo date('M d, Y', strtotime($member['created_at'])); ?></td>
-                            <td>
-                                <button class="action-btn edit-btn" onclick='openEditModal(<?php echo json_encode($member); ?>, "member")'>Edit</button>
-                                <button class="action-btn delete-btn" onclick="confirmDelete(<?php echo $member['id']; ?>, '<?php echo htmlspecialchars(addslashes($member['username'])); ?>')">Delete</button>
-                            </td>
-                        </tr>
-                    <?php endforeach; ?>
-                <?php else: ?>
-                    <tr><td colspan="9" style="text-align:center;">No members found.</td></tr>
-                <?php endif; ?>
-            </tbody>
-        </table>
+                                } else {
+                                    echo '<span style="color:#64748b;">None</span>';
+                                }
+                            ?>
+                        </td>
+                        <td><?php echo date('M d, Y', strtotime($member['created_at'])); ?></td>
+                        <td>
+                            <button class="action-btn edit-btn" onclick='openEditModal(<?php echo json_encode($member); ?>, "member")'>Edit</button>
+                            <button class="action-btn delete-btn" onclick="confirmDelete(<?php echo $member['id']; ?>, '<?php echo htmlspecialchars(addslashes($member['name'] ?? $member['username'])); ?>')">Delete</button>
+                        </td>
+                    </tr>
+                <?php endforeach; ?>
+            <?php else: ?>
+                <tr><td colspan="10" style="text-align:center;">No members found.</td></tr>
+            <?php endif; ?>
+        </tbody>
+    </table>
         <?php if ($total_members_pages > 1): ?>
             <div class="pagination">
                 <?php if ($members_page > 1): ?>
@@ -309,44 +312,46 @@ function buildPaginationUrl($page, $type) {
     <!-- Trainers Table -->
     <div class="table-container" id="trainers-table" style="display: <?php echo $active_tab === 'trainers' ? 'block' : 'none'; ?>;">
         <table class="modern-table">
-            <thead>
-                <tr>
-                    <th>ID</th>
-                    <th>Username</th>
-                    <th>Email</th>
-                    <th>Phone</th>
-                    <th>Specialty</th>
-                    <th>Status</th>
-                    <th>Joined</th>
-                    <th>Actions</th>
-                </tr>
-            </thead>
-            <tbody>
-                <?php if (!empty($trainers)): ?>
-                    <?php foreach ($trainers as $trainer): ?>
-                        <tr>
-                            <td><?php echo htmlspecialchars($trainer['id']); ?></td>
-                            <td><?php echo htmlspecialchars($trainer['username']); ?></td>
-                            <td><?php echo htmlspecialchars($trainer['email']); ?></td>
-                            <td><?php echo htmlspecialchars($trainer['phone'] ?? '—'); ?></td>
-                            <td><?php echo htmlspecialchars($trainer['specialty'] ?? '—'); ?></td>
-                            <td>
-                                <span class="status-badge status-<?php echo htmlspecialchars($trainer['status']); ?>">
-                                    <?php echo ucfirst(htmlspecialchars($trainer['status'])); ?>
-                                </span>
-                            </td>
-                            <td><?php echo date('M d, Y', strtotime($trainer['created_at'])); ?></td>
-                            <td>
-                                <button class="action-btn edit-btn" onclick='openEditModal(<?php echo json_encode($trainer); ?>, "trainer")'>Edit</button>
-                                <button class="action-btn delete-btn" onclick="confirmDelete(<?php echo $trainer['id']; ?>, '<?php echo htmlspecialchars(addslashes($trainer['username'])); ?>')">Delete</button>
-                            </td>
-                        </tr>
-                    <?php endforeach; ?>
-                <?php else: ?>
-                    <tr><td colspan="8" style="text-align:center;">No trainers found.</td></tr>
-                <?php endif; ?>
-            </tbody>
-        </table>
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Name</th>
+                <th>Username</th>
+                <th>Email</th>
+                <th>Phone</th>
+                <th>Specialty</th>
+                <th>Status</th>
+                <th>Joined</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            <?php if (!empty($trainers)): ?>
+                <?php foreach ($trainers as $trainer): ?>
+                    <tr>
+                        <td><?php echo htmlspecialchars($trainer['id']); ?></td>
+                        <td><?php echo htmlspecialchars($trainer['name'] ?? $trainer['username']); ?></td>
+                        <td><?php echo htmlspecialchars($trainer['username']); ?></td>
+                        <td><?php echo htmlspecialchars($trainer['email']); ?></td>
+                        <td><?php echo htmlspecialchars($trainer['phone'] ?? '—'); ?></td>
+                        <td><?php echo htmlspecialchars($trainer['specialty'] ?? '—'); ?></td>
+                        <td>
+                            <span class="status-badge status-<?php echo htmlspecialchars($trainer['status']); ?>">
+                                <?php echo ucfirst(htmlspecialchars($trainer['status'])); ?>
+                            </span>
+                        </td>
+                        <td><?php echo date('M d, Y', strtotime($trainer['created_at'])); ?></td>
+                        <td>
+                            <button class="action-btn edit-btn" onclick='openEditModal(<?php echo json_encode($trainer); ?>, "trainer")'>Edit</button>
+                            <button class="action-btn delete-btn" onclick="confirmDelete(<?php echo $trainer['id']; ?>, '<?php echo htmlspecialchars(addslashes($trainer['name'] ?? $trainer['username'])); ?>')">Delete</button>
+                        </td>
+                    </tr>
+                <?php endforeach; ?>
+            <?php else: ?>
+                <tr><td colspan="9" style="text-align:center;">No trainers found.</td></tr>
+            <?php endif; ?>
+        </tbody>
+    </table>
         <?php if ($total_trainers_pages > 1): ?>
             <div class="pagination">
                 <?php if ($trainers_page > 1): ?>
@@ -391,13 +396,19 @@ function buildPaginationUrl($page, $type) {
     </div>
 </main>
 
-<!-- Edit User Modal -->
+<!-- Edit User Modal - UPDATED -->
 <div id="editModal" class="modal">
     <div class="modal-content">
         <span class="modal-close" onclick="closeEditModal()">&times;</span>
         <h2 style="margin-top:0;">✏️ Edit User</h2>
         <form method="POST" action="<?php echo htmlspecialchars($_SERVER['REQUEST_URI']); ?>">
             <input type="hidden" name="user_id" id="edit_user_id">
+            
+            <div class="form-group">
+                <label>Full Name</label>
+                <input type="text" name="name" id="edit_name" required minlength="2" maxlength="100"
+                       placeholder="Enter full name">
+            </div>
             
             <div class="form-group">
                 <label>Username</label>
@@ -453,7 +464,7 @@ function buildPaginationUrl($page, $type) {
     </div>
 </div>
 
-<!-- Add User Modal -->
+<!-- Add User Modal - UPDATED -->
 <div id="addModal" class="modal">
     <div class="modal-content">
         <span class="modal-close" onclick="closeAddModal()">&times;</span>
@@ -466,6 +477,12 @@ function buildPaginationUrl($page, $type) {
                     <option value="trainer">Trainer</option>
                     <option value="management">Management</option>
                 </select>
+            </div>
+            
+            <div class="form-group">
+                <label>Full Name</label>
+                <input type="text" name="name" required minlength="2" maxlength="100"
+                       placeholder="Enter full name">
             </div>
             
             <div class="form-group">
@@ -522,6 +539,7 @@ function buildPaginationUrl($page, $type) {
         modal.classList.add('active');
 
         document.getElementById('edit_user_id').value = user.id;
+        document.getElementById('edit_name').value = user.name || user.username;
         document.getElementById('edit_username').value = user.username;
         document.getElementById('edit_email').value = user.email;
         document.getElementById('edit_phone').value = user.phone || '';

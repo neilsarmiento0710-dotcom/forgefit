@@ -20,6 +20,7 @@ if ($auth->isLoggedIn()) {
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
     $data = [
         'username' => trim($_POST["username"] ?? ""),
+        'name' => trim($_POST["name"] ?? ""),
         'email' => trim($_POST["email"] ?? ""),
         'password' => $_POST["password"] ?? "",
         'confirm_password' => $_POST["confirm_password"] ?? "",
@@ -149,6 +150,18 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                             pattern="[a-zA-Z0-9_]+"
                             title="Only letters, numbers, and underscores allowed"
                             value="<?= htmlspecialchars($_POST['username'] ?? '') ?>">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="name">Full Name</label>
+                        <input 
+                            id="name" 
+                            name="name" 
+                            type="name" 
+                            required 
+                            class="form-control"
+                            placeholder="Full Name"
+                            value="<?= htmlspecialchars($_POST['name'] ?? '') ?>">
                     </div>
                     
                     <div class="form-group">

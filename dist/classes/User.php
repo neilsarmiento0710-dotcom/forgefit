@@ -55,7 +55,7 @@ class User {
      */
     public function getUsersByRole($role, $limit = null) {
         // Include specialty field for trainers
-        $sql = "SELECT id, username, email, phone, address, status, specialty, created_at 
+        $sql = "SELECT id, username, name, email, phone, address, status, specialty, created_at 
                 FROM users 
                 WHERE role = ? 
                 ORDER BY created_at DESC";
@@ -86,30 +86,31 @@ class User {
      * @return int|bool - Returns user ID or false
      */
     public function createUser($data) {
-        $stmt = $this->conn->prepare(
-            "INSERT INTO users (username, email, password_hash, role, phone, address, specialty) 
-             VALUES (?, ?, ?, ?, ?, ?, ?)"
-        );
+            $stmt = $this->conn->prepare(
+                "INSERT INTO users (username, name, email, password_hash, role, phone, address, specialty) 
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+            );
 
-        $password_hash = password_hash($data['password'], PASSWORD_DEFAULT);
+            $password_hash = password_hash($data['password'], PASSWORD_DEFAULT);
 
-        $stmt->bind_param(
-            "sssssss",
-            $data['username'],
-            $data['email'],
-            $password_hash,
-            $data['role'],
-            $data['phone'],
-            $data['address'] ?? '',
-            $data['specialty'] ?? ''
-        );
+            $stmt->bind_param(
+                "sssssss",
+                $data['username'],
+                $data['name'],
+                $data['email'],
+                $password_hash,
+                $data['role'],
+                $data['phone'],
+                $data['address'] ?? '',
+                $data['specialty'] ?? ''
+            );
 
-        if ($stmt->execute()) {
-            return $this->conn->insert_id;
+            if ($stmt->execute()) {
+                return $this->conn->insert_id;
+            }
+
+            return false;
         }
-
-        return false;
-    }
 
     /**
      * Update user
@@ -126,6 +127,12 @@ class User {
         if (isset($data['username'])) { 
             $fields[] = "username=?"; 
             $params[] = $data['username']; 
+            $types .= 's'; 
+        }
+
+        if (isset($data['name'])) { 
+            $fields[] = "name=?"; 
+            $params[] = $data['name']; 
             $types .= 's'; 
         }
         if (isset($data['email'])) { 

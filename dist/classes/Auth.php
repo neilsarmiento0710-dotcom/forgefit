@@ -60,7 +60,7 @@ class Auth {
      */
     private function findUser($loginInput) {
         $stmt = $this->db->prepare(
-            "SELECT id, username, email, password_hash, role 
+            "SELECT id, username, name, email, password_hash, role 
              FROM users 
              WHERE username = ? OR email = ?"
         );
@@ -133,6 +133,13 @@ class Auth {
                 'error' => 'Username already taken. Please choose another.'
             ];
         }
+
+        if ($this->nameExists($data['name'])) {
+            return [
+                'success' => false,
+                'error' => 'Your name already exists. Please choose another.'
+            ];
+        }
         
         // Check if email exists
         if ($this->emailExists($data['email'])) {
@@ -161,6 +168,7 @@ class Auth {
      */
     private function validateRegistration($data) {
         $username = $data['username'] ?? '';
+        $name = $data['name'] ?? '';
         $email = $data['email'] ?? '';
         $password = $data['password'] ?? '';
         $confirm_password = $data['confirm_password'] ?? '';
@@ -174,6 +182,10 @@ class Auth {
         
         if (strlen($username) > 8) {
             return ['valid' => false, 'error' => 'Username must not exceed 8 characters.'];
+        }
+
+        if (strlen($name) > 25) {
+            return ['valid' => false, 'error' => 'Full Name is too long'];
         }
         
         if (!preg_match('/^[a-zA-Z0-9_]+$/', $username)) {
@@ -215,6 +227,16 @@ class Auth {
         $stmt->close();
         return $exists;
     }
+
+    private function nameExists($name) {
+        $stmt = $this->db->prepare("SELECT id FROM users WHERE username = ?");
+        $stmt->bind_param("s", $name);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        $exists = $result->num_rows > 0;
+        $stmt->close();
+        return $exists;
+    }
     
     /**
      * Check if email exists
@@ -237,13 +259,14 @@ class Auth {
         $role = $data['role'] ?? 'member';
         
         $stmt = $this->db->prepare(
-            "INSERT INTO users (username, email, password_hash, phone, address, role)
-             VALUES (?, ?, ?, ?, ?, ?)"
+            "INSERT INTO users (username, name, email, password_hash, phone, address, role)
+             VALUES (?, ?, ?, ?, ?, ?, ?)"
         );
         
         $stmt->bind_param(
-            "ssssss",
+            "sssssss",
             $data['username'],
+            $data['name'],
             $data['email'],
             $hashedPassword,
             $data['phone'],
