@@ -57,7 +57,7 @@ class MembershipPlan {
         $default_plans = [
             ['basic', 'Basic Plan', 600, 30, 'Gym Access|Cardio Equipment|Locker Room|Free WiFi', 0, 1],
             ['premium', 'Premium Plan', 1000, 30, 'Everything in Basic|Group Classes|Sauna Access|Nutrition Guidance|Guest Passes (2/month)', 1, 2],
-            ['elite', 'Elite Plan', 1250, 30, 'Everything in Premium|Personal Training (4 sessions)|Priority Booking|Massage Therapy|Unlimited Guest Passes|Exclusive Events', 0, 3]
+            ['elite', 'Elite Plan', 1250, 30, 'Everything in Premium|Massage Therapy|Unlimited Guest Passes|Exclusive Events', 0, 3]
         ];
         
         $stmt = $this->conn->prepare(

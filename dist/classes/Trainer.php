@@ -16,7 +16,7 @@ class Trainer {
     }
 
     public function getActiveTrainers() {
-        $sql = "SELECT id, username AS name, specialty 
+        $sql = "SELECT id, name AS name, specialty 
                 FROM users 
                 WHERE role = 'trainer' AND status = 'active'";
         $result = $this->conn->query($sql);

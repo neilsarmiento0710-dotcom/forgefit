@@ -116,7 +116,6 @@
                     <li>✓ Everything in Basic</li>
                     <li>✓ Group Classes</li>
                     <li>✓ Sauna Access</li>
-                    <li>✓ Nutrition Guidance</li>
                     <li>✓ Guest Passes (2/month)</li>
                 </ul>
                 <a href="register.php" class="cta-btn">Get Started</a>
@@ -126,8 +125,6 @@
                 <div class="price">1250<span style="font-size: 1rem;">/mo</span></div>
                 <ul class="pricing-features">
                     <li>✓ Everything in Premium</li>
-                    <li>✓ Personal Training (4 sessions)</li>
-                    <li>✓ Priority Booking</li>
                     <li>✓ Massage Therapy</li>
                     <li>✓ Unlimited Guest Passes</li>
                     <li>✓ Exclusive Events</li>

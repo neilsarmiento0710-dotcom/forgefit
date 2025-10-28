@@ -266,19 +266,83 @@ class Payment {
 
     // FIX: Removed the internal comment from the SQL string.
     public function update($payment_id, $data) {
-        $sql = "UPDATE payments 
-                SET amount = ?, payment_method = ?, status = ?, plan_type = ?
-                WHERE id = ?";
-        $stmt = $this->conn->prepare($sql);
-        // Bind parameters: d (double for amount), s (string for method), s (string for status), s (string for plan_type), i (integer for id)
-        $stmt->bind_param("dsssi", 
-            $data['amount'],
-            $data['payment_method'],
-            $data['status'],
-            $data['plan_type'],
-            $payment_id
-        );
-        return $stmt->execute();
+    // Check which fields to update
+    $fields = [];
+    $params = [];
+    $types = '';
+    
+    if (isset($data['amount'])) {
+        $fields[] = "amount = ?";
+        $params[] = $data['amount'];
+        $types .= 'd';
+    }
+    
+    if (isset($data['payment_method'])) {
+        $fields[] = "payment_method = ?";
+        $params[] = $data['payment_method'];
+        $types .= 's';
+    }
+    
+    if (isset($data['status'])) {
+        $fields[] = "status = ?";
+        $params[] = $data['status'];
+        $types .= 's';
+    }
+    
+    if (isset($data['plan_type'])) {
+        $fields[] = "plan_type = ?";
+        $params[] = $data['plan_type'];
+        $types .= 's';
+    }
+    
+    // NEW: Handle approved_by field
+    if (isset($data['approved_by'])) {
+        $fields[] = "approved_by = ?";
+        $params[] = $data['approved_by'] === '' ? null : (int)$data['approved_by'];
+        $types .= 'i';
+    }
+    
+    // NEW: Handle approved_at field
+    if (isset($data['approved_at'])) {
+        $fields[] = "approved_at = ?";
+        $params[] = $data['approved_at'] === '' ? null : $data['approved_at'];
+        $types .= 's';
+    }
+    
+    if (empty($fields)) {
+        return false;
+    }
+    
+    // Build and execute query
+    $sql = "UPDATE payments SET " . implode(", ", $fields) . " WHERE id = ?";
+    $stmt = $this->conn->prepare($sql);
+    
+    if (!$stmt) {
+        error_log("Payment update failed: " . $this->conn->error);
+        return false;
+    }
+    
+    // Add payment_id to params
+    $params[] = $payment_id;
+    $types .= 'i';
+    
+    $stmt->bind_param($types, ...$params);
+    return $stmt->execute();
+}
+
+    /**
+     * Get all management users for approved_by dropdown
+     */
+    public function getManagementUsers() {
+        $query = "SELECT id, username, name FROM users WHERE role = 'management' ORDER BY username ASC";
+        $result = $this->conn->query($query);
+        
+        $managers = [];
+        while ($row = $result->fetch_assoc()) {
+            $managers[] = $row;
+        }
+        
+        return $managers;
     }
 
     public function delete($payment_id) {
