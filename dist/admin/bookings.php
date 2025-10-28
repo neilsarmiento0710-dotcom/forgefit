@@ -121,7 +121,7 @@ $bookings = array_slice($all_bookings, $offset, $records_per_page);
     <link rel="stylesheet" href="../assets/fonts/feather.css" />
     <link rel="stylesheet" href="../assets/fonts/fontawesome.css" />
     <link rel="stylesheet" href="../assets/fonts/material.css" />
-    <link rel="stylesheet" href="../assets/css/home.css?v=4"/> 
+    <link rel="stylesheet" href="../assets/css/home.css"/> 
     <link rel="stylesheet" href="../assets/css/member_dashboard.css"/> 
     <link rel="stylesheet" href="../assets/css/bookings_a.css" id="main-style-link"/>
     <link rel="stylesheet" href="../assets/css/sidebar.css" />

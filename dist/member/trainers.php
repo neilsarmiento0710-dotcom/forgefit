@@ -35,7 +35,7 @@ $has_active_membership = $membershipModel->hasActiveMembership($user_id);
     <link rel="stylesheet" href="../assets/fonts/feather.css" />
     <link rel="stylesheet" href="../assets/fonts/fontawesome.css" />
     <link rel="stylesheet" href="../assets/fonts/material.css" />
-    <link rel="stylesheet" href="../assets/css/home.css?v=4" id="main-style-link" />
+    <link rel="stylesheet" href="../assets/css/home.css" id="main-style-link" />
     <link rel="stylesheet" href="../assets/css/sidebar.css" />
     <style>
         main {

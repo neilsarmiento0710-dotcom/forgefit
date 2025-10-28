@@ -147,7 +147,7 @@ function buildPaginationUrl($page, $type) {
     <title>Users - ForgeFit Admin</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;600;700;900&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="../assets/css/home.css?v=4"/>
+    <link rel="stylesheet" href="../assets/css/home.css"/>
     <link rel="stylesheet" href="../assets/css/member_dashboard.css"/>
     <link rel="stylesheet" href="../assets/css/users_a.css"/>
     <link rel="stylesheet" href="../assets/css/sidebar.css" />

@@ -57,7 +57,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     <link rel="stylesheet" href="./dist/assets/fonts/material.css" />
     <link rel="stylesheet" href="./dist/assets/css/style.css"  />
     <link rel="stylesheet" href="/pwa/dist/css/login.css">
-    <link rel="stylesheet" href="./dist/assets/css/home.css?v=4" id="main-style-link" />
+    <link rel="stylesheet" href="./dist/assets/css/home.css" id="main-style-link" />
     <link rel="stylesheet" href="./dist/assets/css/sidebar.css" />
     <style>
         .success-message {

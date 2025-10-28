@@ -67,7 +67,7 @@ $bookings_result = $trainerClient->getRecentBookings(20);
     <link rel="stylesheet" href="../assets/fonts/feather.css" />
     <link rel="stylesheet" href="../assets/fonts/fontawesome.css" />
     <link rel="stylesheet" href="../assets/fonts/material.css" />
-    <link rel="stylesheet" href="../assets/css/home.css?v=4" />
+    <link rel="stylesheet" href="../assets/css/home.css" />
     <link rel="stylesheet" href="../assets/css/clients_t.css" />
     <link rel="stylesheet" href="../assets/css/sidebar.css" />
 </head>

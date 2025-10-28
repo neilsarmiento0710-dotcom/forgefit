@@ -159,8 +159,8 @@ $pageHandler->processBooking();
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <title>Book Training Session - ForgeFit</title>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;600;700;900&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="../assets/css/home.css?v=4" />
-    <link rel="stylesheet" href="../assets/css/booking.css?v=4" />
+    <link rel="stylesheet" href="../assets/css/home.css" />
+    <link rel="stylesheet" href="../assets/css/booking.css" />
     <link rel="stylesheet" href="../assets/css/sidebar.css" />
     <style>
         .logo-two {

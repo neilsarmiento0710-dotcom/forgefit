@@ -102,7 +102,7 @@ $bookings = $bookingModel->getUserBookings($user_id, 999); // Get all bookings (
     <link rel="stylesheet" href="../assets/fonts/feather.css" />
     <link rel="stylesheet" href="../assets/fonts/fontawesome.css" />
     <link rel="stylesheet" href="../assets/fonts/material.css" />
-    <link rel="stylesheet" href="../assets/css/home.css?v=4"/>
+    <link rel="stylesheet" href="../assets/css/home.css"/>
     <link rel="stylesheet" href="../assets/css/classes.css" />
     <link rel="stylesheet" href="../assets/css/sidebar.css" />
     
@@ -220,7 +220,7 @@ $bookings = $bookingModel->getUserBookings($user_id, 999); // Get all bookings (
                     </div>
                 <?php endforeach; ?>
             <?php else: ?>
-                <p style="text-align: center; color: #64748b; padding: 20px;">No bookings yet. <a href="classes.php" style="color: #ff6b6b;">Book your first session!</a></p>
+                <p style="text-align: center; color: #64748b; padding: 20px;">No bookings yet. <a href="classes.php"></p>
             <?php endif; ?>
         </div>
     </div>

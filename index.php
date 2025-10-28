@@ -1,9 +1,8 @@
 <?php
-  session_start();
-  if(isset($_POST['submit'])){
-
-  } else {
-
+session_start();
+if(isset($_POST['submit'])){
+    // Handle form submission
+} else {
 ?>
 
 <!DOCTYPE html>
@@ -22,9 +21,9 @@
     <link rel="stylesheet" href="./dist/assets/fonts/feather.css" />
     <link rel="stylesheet" href="./dist/assets/fonts/fontawesome.css" />
     <link rel="stylesheet" href="./dist/assets/fonts/material.css" />
-    <link rel="stylesheet" href="./dist/assets/css/home.css?v=4" id="main-style-link" />
+    <link rel="stylesheet" href="./dist/assets/css/home.css" />
     <link rel="stylesheet" href="./dist/assets/css/sidebar.css" />
-</head>
+</head> 
 <body>
     <!-- Header -->
     <header>
