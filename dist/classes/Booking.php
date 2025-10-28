@@ -223,5 +223,106 @@ class Booking {
         $stmt->bind_param("ssi", $new_date, $new_time, $booking_id);
         return $stmt->execute();
     }
+
+    // Add these methods to your Booking class
+
+/**
+ * Get user's bookings count for a specific date
+ */
+public function getUserBookingsCountByDate($user_id, $date) {
+    $query = "SELECT COUNT(*) as count FROM bookings 
+              WHERE user_id = ? 
+              AND booking_date = ? 
+              AND status NOT IN ('cancelled', 'completed')";
+    
+    $stmt = $this->conn->prepare($query);
+    $stmt->bind_param("is", $user_id, $date);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $row = $result->fetch_assoc();
+    
+    return $row['count'];
+}
+
+/**
+ * Get user's bookings for a specific date
+ */
+public function getUserBookingsByDate($user_id, $date) {
+    $query = "SELECT * FROM bookings 
+              WHERE user_id = ? 
+              AND booking_date = ? 
+              AND status NOT IN ('cancelled', 'completed')
+              ORDER BY booking_time ASC";
+    
+    $stmt = $this->conn->prepare($query);
+    $stmt->bind_param("is", $user_id, $date);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    
+    $bookings = [];
+    while ($row = $result->fetch_assoc()) {
+        $bookings[] = $row;
+    }
+    
+    return $bookings;
+}
+
+/**
+ * Check if booking time conflicts with existing bookings (1 hour gap required)
+ */
+public function hasTimeConflict($user_id, $date, $time, $exclude_booking_id = null) {
+    $existingBookings = $this->getUserBookingsByDate($user_id, $date);
+    
+    // Convert new booking time to timestamp
+    $newBookingTime = strtotime($date . ' ' . $time);
+    
+    foreach ($existingBookings as $booking) {
+        // Skip if this is the booking being rescheduled
+        if ($exclude_booking_id && $booking['id'] == $exclude_booking_id) {
+            continue;
+        }
+        
+        $existingTime = strtotime($booking['booking_date'] . ' ' . $booking['booking_time']);
+        
+        // Calculate time difference in minutes
+        $timeDiff = abs($newBookingTime - $existingTime) / 60;
+        
+        // Check if less than 60 minutes apart
+        if ($timeDiff < 60) {
+            return true;
+        }
+    }
+    
+    return false;
+}
+
+/**
+ * Validate booking constraints
+ */
+public function validateBooking($user_id, $date, $time, $exclude_booking_id = null) {
+    $errors = [];
+    
+    // Check if user already has 2 bookings on this date
+    $bookingsCount = $this->getUserBookingsCountByDate($user_id, $date);
+    
+    // If we're rescheduling, don't count the current booking
+    if ($exclude_booking_id) {
+        $currentBooking = $this->getBookingById($exclude_booking_id);
+        if ($currentBooking && $currentBooking['booking_date'] == $date) {
+            $bookingsCount--;
+        }
+    }
+    
+    if ($bookingsCount >= 2) {
+        $errors[] = "You can only have 2 bookings per day. You already have $bookingsCount booking(s) on " . date('F j, Y', strtotime($date));
+    }
+    
+    // Check for time conflicts (1 hour gap)
+    if ($this->hasTimeConflict($user_id, $date, $time, $exclude_booking_id)) {
+        $errors[] = "Bookings must have at least 1 hour gap between them. Please choose a different time.";
+    }
+    
+    return $errors;
+}
 }
 ?>

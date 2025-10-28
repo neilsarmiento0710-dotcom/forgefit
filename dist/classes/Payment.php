@@ -9,6 +9,7 @@ class Payment {
     private $db;
     private $conn;
     private $membershipPlan;
+    
 
     public function __construct() {
         // Assume Database class is included and accessible
@@ -166,21 +167,41 @@ class Payment {
     }
 
     public function create($data) {
-        $data['plan_type'] = $data['plan_type'] ?? 'basic';
-        $sql = "INSERT INTO payments (user_id, amount, payment_method, status, payment_proof, plan_type, created_at) 
-                VALUES (?, ?, ?, ?, ?, ?, NOW())";
-        $stmt = $this->conn->prepare($sql);
-        $stmt->bind_param(
-            "idssss", 
-            $data['user_id'],
-            $data['amount'],
-            $data['payment_method'],
-            $data['status'],
-            $data['payment_proof'],
-            $data['plan_type']
-        );
-        return $stmt->execute() ? $this->conn->insert_id : false;
+    $data['plan_type'] = $data['plan_type'] ?? 'basic';
+    $sql = "INSERT INTO payments (user_id, amount, payment_method, status, payment_proof, plan_type, created_at) 
+            VALUES (?, ?, ?, ?, ?, ?, NOW())";
+    $stmt = $this->conn->prepare($sql);
+    $stmt->bind_param(
+        "idssss", 
+        $data['user_id'],
+        $data['amount'],
+        $data['payment_method'],
+        $data['status'],
+        $data['payment_proof'],
+        $data['plan_type']
+    );
+
+    if ($stmt->execute()) {
+        $payment_id = $this->conn->insert_id;
+
+        // ✅ Auto-activate membership if paid
+        if ($data['status'] === 'paid') {
+            require_once '../classes/Membership.php';
+            require_once '../classes/User.php';
+            $membership = new Membership($this->conn);
+            $user = new User($this->conn);
+
+            $membership->createOrUpdateMembership($data['user_id'], $data['plan_type']);
+            $membership->activateByUserId($data['user_id']);
+            $user->updateStatus($data['user_id'], 'active');
+        }
+
+        return $payment_id;
     }
+
+    return false;
+}
+
 
     public function updateStatus($payment_id, $status) {
         $stmt = $this->conn->prepare("UPDATE payments SET status = ? WHERE id = ?");
@@ -326,5 +347,35 @@ class Payment {
         }
 
         return $payments;
+    }
+
+    // Add this method to your Payment class (../classes/Payment.php)
+
+    /**
+     * Get monthly earnings for a specific year and month
+     * @param int $year - The year (e.g., 2025)
+     * @param int $month - The month (1-12)
+     * @return float - Total earnings for the specified month
+     */
+    public function getMonthlyEarnings($year, $month) {
+        $query = "SELECT COALESCE(SUM(amount), 0) as total 
+                FROM payments 
+                WHERE status = 'paid' 
+                AND YEAR(approved_at) = ? 
+                AND MONTH(approved_at) = ?";
+        
+        $stmt = $this->conn->prepare($query);
+        
+        if (!$stmt) {
+            error_log("Payment::getMonthlyEarnings - Prepare failed: " . $this->conn->error);
+            return 0;
+        }
+        
+        $stmt->bind_param("ii", $year, $month);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        $row = $result->fetch_assoc();
+        
+        return (float)($row['total'] ?? 0);
     }
 }

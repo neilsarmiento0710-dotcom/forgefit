@@ -78,7 +78,15 @@ class BookingPageHandler {
         $memberEmail = $_POST['member_email'];
         $notes = $_POST['notes'] ?? '';
         
-        // Check for conflicts
+        // VALIDATION 1: Check user's booking constraints (2 per day, 1-hour gap)
+        $validationErrors = $this->bookingModel->validateBooking($this->userId, $bookingDate, $bookingTime);
+        
+        if (!empty($validationErrors)) {
+            $this->errorMessage = "⚠️ " . implode('<br>⚠️ ', $validationErrors);
+            return;
+        }
+        
+        // VALIDATION 2: Check for trainer conflicts
         if ($this->bookingModel->hasConflict($this->trainerId, $bookingDate, $bookingTime)) {
             $this->errorMessage = "⚠️ Sorry! " . htmlspecialchars($this->trainer['username']) . 
                 " is already booked on " . date('F j, Y', strtotime($bookingDate)) . 
@@ -164,6 +172,16 @@ $pageHandler->processBooking();
             border-radius: 20px;
             border: 1px solid rgba(144, 224, 239, 0.3);
             margin-left: 15px;
+        }
+        .error-message {
+            background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+            border-left: 4px solid #ef4444;
+            color: #991b1b;
+            padding: 15px 20px;
+            margin: 20px auto;
+            max-width: 800px;
+            border-radius: 8px;
+            line-height: 1.6;
         }
     </style>
 </head>

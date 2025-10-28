@@ -43,11 +43,31 @@ if (isset($_POST['cancel_booking'])) {
 }
 
 // Handle reschedule request
+// Handle reschedule request
 if (isset($_POST['request_reschedule'])) {
     $booking_id = intval($_POST['booking_id']);
     $new_date = $_POST['new_date'];
     $new_time = $_POST['new_time'];
     
+    // Get the booking to verify ownership
+    $booking = $bookingModel->getBookingById($booking_id);
+    
+    if (!$booking || $booking['user_id'] != $user_id) {
+        $_SESSION['error_message'] = "Invalid booking.";
+        header("Location: classes.php");
+        exit();
+    }
+    
+    // Validate the new date and time
+    $validationErrors = $bookingModel->validateBooking($user_id, $new_date, $new_time, $booking_id);
+    
+    if (!empty($validationErrors)) {
+        $_SESSION['error_message'] = implode('<br>', $validationErrors);
+        header("Location: classes.php");
+        exit();
+    }
+    
+    // If validation passes, proceed with reschedule request
     if ($bookingModel->requestReschedule($booking_id, $new_date, $new_time)) {
         $_SESSION['success_message'] = "Reschedule request sent! A trainer will review your request.";
     } else {

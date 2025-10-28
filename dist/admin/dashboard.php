@@ -42,6 +42,9 @@ $today_bookings = $bookingModel->countBookingsByDate(date('Y-m-d'));
 $active_memberships = $membershipModel->countActiveMemberships();
 $total_earnings = $paymentModel->getTotalEarnings('paid');
 
+// Get monthly revenue (current month)
+$monthly_revenue = $paymentModel->getMonthlyEarnings(date('Y'), date('m'));
+
 // Fetch recent bookings (optional for future use)
 $recent_bookings = $bookingModel->getUserBookings($user_id, 5);
 
@@ -128,7 +131,7 @@ $recent_bookings = $bookingModel->getUserBookings($user_id, 5);
         
         <!-- Dashboard Header -->
         <div class="dashboard-hero">
-            <h1 class="dashboard-title"style="text-align: center;">Welcome Back, Admin!</h1>
+            <h1 class="dashboard-title" style="text-align: center;">Welcome Back, Admin!</h1>
         </div>
 
         <div class="earnings-grid">
@@ -198,7 +201,21 @@ $recent_bookings = $bookingModel->getUserBookings($user_id, 5);
                 </div>
             </div>
             
-            <!-- Card 5: Total Earnings -->
+            <!-- Card 5: Monthly Revenue (NEW) -->
+            <div class="earnings-card">
+                <div class="earnings-header">📊 THIS MONTH</div>
+                <div class="earnings-content">
+                    <div class="earnings-amount-container">
+                        <span class="earnings-amount">₱<?php echo number_format($monthly_revenue, 2); ?></span>
+                    </div>
+                    <div class="earnings-percentage">Revenue</div>
+                </div>
+                <div class="progress-bar">
+                    <div class="progress-bar-fill" style="width: <?php echo min(($monthly_revenue / max($total_earnings, 1)) * 100, 100); ?>%; background: linear-gradient(135deg, #8b5cf6, #7c3aed);"></div>
+                </div>
+            </div>
+            
+            <!-- Card 6: Total Earnings -->
             <div class="earnings-card">
                 <div class="earnings-header">💰 TOTAL EARNINGS</div>
                 <div class="earnings-content">

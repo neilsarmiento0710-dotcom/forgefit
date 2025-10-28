@@ -163,14 +163,6 @@
         </div>
     </footer>
 
-    <!-- Required Js -->
-    <script src="./dist/assets/js/plugins/simplebar.min.js"></script>
-    <script src="./dist/assets/js/plugins/popper.min.js"></script>
-    <script src="./dist/assets/js/plugins/feather.min.js"></script>
-    <script src="./dist/assets/js/component.js"></script>
-    <script src="./dist/assets/js/theme.js"></script>
-    <script src="./dist/assets/js/script.js"></script>
-
 <script>
 // Smooth scrolling for navigation links
 document.querySelectorAll('a[href^="#"]').forEach(anchor => {

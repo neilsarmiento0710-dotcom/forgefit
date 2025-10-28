@@ -3,12 +3,7 @@ session_start();
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
-// Include database connection
-$db_path = '../database/db.php';
-if (!file_exists($db_path)) {
-    die("Error: Database connection file not found.");
-}
-require_once $db_path;
+require_once '../database/db.php';
 
 // Include class files
 require_once '../classes/Payment.php';
@@ -494,6 +489,16 @@ $members_list = $user->getMembersList();
                         <option value="failed">Failed</option>
                     </select>
                 </div>
+
+                <div class="form-group">
+                    <label for="add_plan_type">Plan Type:</label>
+                    <select name="plan_type" id="add_plan_type" class="form-control" required>
+                        <option value="">-- Select Plan --</option>
+                        <option value="basic">Basic</option>
+                        <option value="premium">Premium</option>
+                        <option value="elite">Elite</option>
+                    </select>
+                </div>
                 
                 <div class="form-group">
                     <label for="add_payment_proof">Payment Proof (Optional):</label>
@@ -605,8 +610,16 @@ $members_list = $user->getMembersList();
 <script src="../assets/js/plugins/feather.min.js"></script>
 <script>
     function openAddPaymentModal() {
-        document.getElementById('addPaymentModal').style.display = 'block';
-    }
+    // Reset form fields
+    document.getElementById('add_user_id').value = '';
+    document.getElementById('add_amount').value = '';
+    document.getElementById('add_payment_method').value = 'gcash';
+    document.getElementById('add_status').value = 'pending';
+    document.getElementById('add_plan_type').value = '';
+    document.getElementById('add_payment_proof').value = '';
+    
+    document.getElementById('addPaymentModal').style.display = 'block';
+}
 
     function closeAddPaymentModal() {
         document.getElementById('addPaymentModal').style.display = 'none';

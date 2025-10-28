@@ -3,12 +3,6 @@ session_start();
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
-// Include database connection
-$db_path = '../database/db.php';
-if (!file_exists($db_path)) {
-    die("Error: Database connection file not found.");
-}
-
 require_once '../database/db.php';
 require_once '../classes/Booking.php';
 
