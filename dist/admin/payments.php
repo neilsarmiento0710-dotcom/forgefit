@@ -528,43 +528,42 @@ $members_list = $user->getMembersList();
         </div>
     </div>
 
-    <!-- Edit Payment Modal -->
+        <!-- Edit Payment Modal -->
     <div id="editModal" class="modal">
         <div class="modal-content">
-            <span class="modal-close" onclick="closeEditModal()">&times;</span>
-            <h2 style="margin-top:0;">✏️ Edit Payment</h2>
+            <span class="close" onclick="closeEditModal()">&times;</span>
+            <h2 class="modal-header">Edit Payment</h2>
             <form method="POST" action="">
                 <input type="hidden" name="payment_id" id="edit_payment_id">
                 
                 <div class="form-group">
-                    <label>Amount (₱)</label>
-                    <input type="number" name="amount" id="edit_amount" step="0.01" min="0" required>
+                    <label for="edit_amount">Amount (₱):</label>
+                    <input type="number" name="amount" id="edit_amount" class="form-control" step="0.01" min="0" required>
                 </div>
                 
                 <div class="form-group">
-                    <label>Payment Method</label>
-                    <select name="payment_method" id="edit_payment_method" required>
-                        <option value="cash">Cash</option>
+                    <label for="edit_payment_method">Payment Method:</label>
+                    <select name="payment_method" id="edit_payment_method" class="form-control" required>
                         <option value="gcash">GCash</option>
                         <option value="paymaya">PayMaya</option>
                         <option value="bank_transfer">Bank Transfer</option>
-                        <option value="credit_card">Credit Card</option>
+                        <option value="cash">Cash</option>
+                        <option value="card">Card</option>
                     </select>
                 </div>
                 
                 <div class="form-group">
-                    <label>Status</label>
-                    <select name="status" id="edit_status" required>
+                    <label for="edit_status">Status:</label>
+                    <select name="status" id="edit_status" class="form-control" required>
                         <option value="pending">Pending</option>
                         <option value="paid">Paid</option>
                         <option value="failed">Failed</option>
-                        <option value="refunded">Refunded</option>
                     </select>
                 </div>
                 
                 <div class="form-group">
-                    <label>Plan Type</label>
-                    <select name="plan_type" id="edit_plan_type" required>
+                    <label for="edit_plan_type">Plan Type:</label>
+                    <select name="plan_type" id="edit_plan_type" class="form-control" required>
                         <option value="basic">Basic</option>
                         <option value="premium">Premium</option>
                         <option value="elite">Elite</option>
@@ -572,8 +571,8 @@ $members_list = $user->getMembersList();
                 </div>
                 
                 <div class="form-group">
-                    <label>Approved By</label>
-                    <select name="approved_by" id="edit_approved_by">
+                    <label for="edit_approved_by">Approved By:</label>
+                    <select name="approved_by" id="edit_approved_by" class="form-control">
                         <option value="">Not Approved</option>
                         <?php foreach ($managementUsers as $manager): ?>
                             <option value="<?php echo $manager['id']; ?>">
@@ -584,12 +583,15 @@ $members_list = $user->getMembersList();
                 </div>
                 
                 <div class="form-group">
-                    <label>Approved Date & Time</label>
-                    <input type="datetime-local" name="approved_at" id="edit_approved_at">
-                    <small style="color: #64748b;">Leave empty if not approved yet</small>
+                    <label for="edit_approved_at">Approved Date & Time:</label>
+                    <input type="datetime-local" name="approved_at" id="edit_approved_at" class="form-control">
+                    <small style="color: #94a3b8;">Leave empty if not approved yet</small>
                 </div>
                 
-                <button type="submit" name="update_payment" class="submit-btn">💾 Save Changes</button>
+                <div class="modal-footer">
+                    <button type="button" class="action-btn" onclick="closeEditModal()" style="background-color: #64748b;">Cancel</button>
+                    <button type="submit" name="update_payment" class="action-btn edit-btn">Save Changes</button>
+                </div>
             </form>
         </div>
     </div>
