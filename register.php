@@ -26,7 +26,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         'confirm_password' => $_POST["confirm_password"] ?? "",
         'role' => $_POST["role"] ?? "member",
         'phone' => trim($_POST["phone"] ?? ""),
-        'address' => trim($_POST["address"] ?? "")
+        'address' => trim($_POST["address"] ?? ""),
     ];
     
     $result = $auth->register($data);
@@ -226,6 +226,17 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                             class="form-control"
                             placeholder="Re-enter password"
                             minlength="8">
+                    </div>
+                    <div class="form-group">
+                        <label for="confirm_password">Confirm Password</label>
+                        <input 
+                            id="security_answer" 
+                            name="security_answer" 
+                            type="security_answer" 
+                            required 
+                            class="form-control"
+                            placeholder="Name of your favorite pet"
+                            minlength="10">
                     </div>
                     
                     <div class="btn-group">

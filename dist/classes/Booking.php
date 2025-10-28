@@ -118,41 +118,64 @@ class Booking {
         return false;
     }
     
-    /**
-     * Check for booking conflicts
-     * @param int $trainer_id
-     * @param string $booking_date
-     * @param string $booking_time
-     * @param int $exclude_booking_id
-     * @return bool
-     */
-    public function hasConflict($trainer_id, $booking_date, $booking_time, $exclude_booking_id = null) {
-        if ($exclude_booking_id) {
-            $stmt = $this->conn->prepare(
-                "SELECT id FROM bookings 
-                 WHERE trainer_id = ? 
-                 AND booking_date = ? 
-                 AND booking_time = ? 
-                 AND status != 'cancelled'
-                 AND id != ?"
-            );
-            $stmt->bind_param("issi", $trainer_id, $booking_date, $booking_time, $exclude_booking_id);
-        } else {
-            $stmt = $this->conn->prepare(
-                "SELECT id FROM bookings 
-                 WHERE trainer_id = ? 
-                 AND booking_date = ? 
-                 AND booking_time = ? 
-                 AND status != 'cancelled'"
-            );
-            $stmt->bind_param("iss", $trainer_id, $booking_date, $booking_time);
-        }
-        
-        $stmt->execute();
-        $result = $stmt->get_result();
-        
-        return $result->num_rows > 0;
+/**
+ * Check for booking conflicts (80-minute gap required)
+ * @param int $trainer_id
+ * @param string $booking_date
+ * @param string $booking_time
+ * @param int $exclude_booking_id
+ * @return array|false - Returns conflict details or false if no conflict
+ */
+public function hasConflict($trainer_id, $booking_date, $booking_time, $exclude_booking_id = null) {
+    // Get all bookings for this trainer on this date
+    if ($exclude_booking_id) {
+        $stmt = $this->conn->prepare(
+            "SELECT booking_time FROM bookings 
+             WHERE trainer_id = ? 
+             AND booking_date = ? 
+             AND status != 'cancelled'
+             AND id != ?"
+        );
+        $stmt->bind_param("isi", $trainer_id, $booking_date, $exclude_booking_id);
+    } else {
+        $stmt = $this->conn->prepare(
+            "SELECT booking_time FROM bookings 
+             WHERE trainer_id = ? 
+             AND booking_date = ? 
+             AND status != 'cancelled'"
+        );
+        $stmt->bind_param("is", $trainer_id, $booking_date);
     }
+    
+    $stmt->execute();
+    $result = $stmt->get_result();
+    
+    // Convert new booking time to timestamp
+    $newBookingTimestamp = strtotime($booking_date . ' ' . $booking_time);
+    
+    // Check each existing booking for 80-minute conflicts
+    while ($row = $result->fetch_assoc()) {
+        $existingTimestamp = strtotime($booking_date . ' ' . $row['booking_time']);
+        
+        // Calculate time difference in minutes
+        $timeDiffMinutes = abs($newBookingTimestamp - $existingTimestamp) / 60;
+        
+        // If less than 80 minutes apart, there's a conflict
+        if ($timeDiffMinutes < 80) {
+            // Calculate end time (existing time + 80 minutes)
+            $endTimestamp = $existingTimestamp + (80 * 60);
+            
+            return [
+                'has_conflict' => true,
+                'start_time' => date('g:i A', $existingTimestamp),
+                'end_time' => date('g:i A', $endTimestamp),
+                'existing_time' => $row['booking_time']
+            ];
+        }
+    }
+    
+    return false;
+}
     
     /**
      * Update booking status

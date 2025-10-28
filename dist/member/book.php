@@ -87,10 +87,12 @@ class BookingPageHandler {
         }
         
         // VALIDATION 2: Check for trainer conflicts
-        if ($this->bookingModel->hasConflict($this->trainerId, $bookingDate, $bookingTime)) {
-            $this->errorMessage = "⚠️ Sorry! " . htmlspecialchars($this->trainer['username']) . 
-                " is already booked on " . date('F j, Y', strtotime($bookingDate)) . 
-                " at " . date('g:i A', strtotime($bookingTime)) . 
+        $conflict = $this->bookingModel->hasConflict($this->trainerId, $bookingDate, $bookingTime);
+        if ($conflict) {
+            $this->errorMessage = "⚠️ Sorry! " . htmlspecialchars($this->trainer['name']) . 
+                " is booked from " . $conflict['start_time'] . 
+                " to " . $conflict['end_time'] . 
+                " on " . date('F j, Y', strtotime($bookingDate)) . 
                 ". Please choose a different time.";
             return;
         }

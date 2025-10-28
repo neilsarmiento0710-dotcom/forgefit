@@ -83,5 +83,7 @@ class Trainer {
 
         return round(($completed / $total) * 100);
     }
+
+    
 }
 ?>
